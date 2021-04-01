@@ -38,11 +38,11 @@ class NoisyCIFAR10(pl.LightningDataModule):
         self.root = root
         self.num_labeled = num_labeled
         if isinstance(batch_size, dict):
-            self.batch_sizeₗ = batch_size['labeled']
-            self.batch_sizeᵤ = batch_size['unlabeled']
+            self.batch_sizeₗ = batch_size['clean']
+            self.batch_sizeₙ = batch_size['noisy']
         else:
             self.batch_sizeₗ = batch_size
-            self.batch_sizeᵤ = batch_size
+            self.batch_sizeₙ = batch_size
         self.noise_ratio = noise_ratio
         self.noise_type = noise_type
         self.train_transformₗ = None
@@ -74,12 +74,12 @@ class NoisyCIFAR10(pl.LightningDataModule):
             self.cifar10_trainₗ, self.batch_sizeₗ, shuffle=True,
             num_workers=self.num_workers, pin_memory=self.pin_memory)
         loaderₙ = torch.utils.data.DataLoader(
-            self.cifar10_trainₙ, self.batch_sizeᵤ, shuffle=True,
+            self.cifar10_trainₙ, self.batch_sizeₙ, shuffle=True,
             num_workers=self.num_workers, pin_memory=self.pin_memory)
         return {'clean': loaderₗ, 'noisy': loaderₙ}
 
     def val_dataloader(self):
-        batch_size = max(self.batch_sizeₗ, self.batch_sizeᵤ) * 2
+        batch_size = max(self.batch_sizeₗ, self.batch_sizeₙ) * 2
         return torch.utils.data.DataLoader(
             self.cifar10_test, batch_size, shuffle=False,
             num_workers=self.num_workers, pin_memory=self.pin_memory)

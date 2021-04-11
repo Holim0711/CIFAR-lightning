@@ -9,11 +9,10 @@ def uniform(size, noise_ratio):
 
 
 def noisify(y, P, random_state=None):
-    rand = np.random.RandomState(random_state)
-    return [rand.multinomial(1, P[c]).argmax() for c in y]
+    return [random_state.multinomial(1, P[c]).argmax() for c in y]
 
 
-def noisify_cifar10(y_train, noise_ratio, noise_type, random_state=None):
+def noisify_cifar10(y_train, noise_type, noise_ratio, random_state=None):
     if noise_type == 'symmetric':
         P = uniform(10, noise_ratio)
 
@@ -28,7 +27,7 @@ def noisify_cifar10(y_train, noise_ratio, noise_type, random_state=None):
     return noisify(y_train, P, random_state=random_state)
 
 
-def noisify_cifar100(y_train, noise_ratio, noise_type, random_state=None):
+def noisify_cifar100(y_train, noise_type, noise_ratio, random_state=None):
     if noise_type == 'symmetric':
         P = uniform(100, noise_ratio)
 

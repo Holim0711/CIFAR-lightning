@@ -30,7 +30,8 @@ def index_select(labels, n, random_state):
 
 class NoisyCIFAR10(pl.LightningDataModule):
 
-    def __init__(self, root, num_labeled=4000, batch_size=1, seed=None,
+    def __init__(self, root, num_labeled=4000, seed=None,
+                 batch_size=1, valid_batch_size=None,
                  noise_type='asymmetric', noise_ratio=0.2,
                  num_workers=None, pin_memory=True, expand_labeled=True):
         super().__init__()
@@ -45,6 +46,11 @@ class NoisyCIFAR10(pl.LightningDataModule):
             self.batch_sizeₙ = batch_size
         else:
             raise ValueError("batch_size should be 'int' or 'dict'")
+
+        if valid_batch_size is not None:
+            self.valid_batch_size = valid_batch_size
+        else:
+            self.valid_batch_size = max(self.batch_sizeₗ, self.batch_sizeₙ) * 2
 
         self.noise_type = noise_type
         self.noise_ratio = noise_ratio
@@ -69,7 +75,7 @@ class NoisyCIFAR10(pl.LightningDataModule):
         indices = index_select(self.cifar10_trainₙ.targets, self.num_labeled, self.random_state)
         self.cifar10_trainₗ = SubsetCIFAR10(self.root, indices, train=True, transform=self.train_transformₗ)
 
-        if self.expand_labeled:
+        if self.expand_labeled and self.batch_sizeₗ > 0:
             n = 1 + (len(self.cifar10_trainₙ) - 1) // self.batch_sizeₙ
             m = n * self.batch_sizeₗ // len(indices)
             self.cifar10_trainₗ = ConcatDataset([self.cifar10_trainₗ] * m)
@@ -81,18 +87,20 @@ class NoisyCIFAR10(pl.LightningDataModule):
         self.cifar10_trainₙ.targets = list(zip(noisy_targets, self.cifar10_trainₙ.targets))
 
     def train_dataloader(self):
-        loaderₗ = torch.utils.data.DataLoader(
-            self.cifar10_trainₗ, self.batch_sizeₗ, shuffle=True,
-            num_workers=self.num_workers, pin_memory=self.pin_memory)
         loaderₙ = torch.utils.data.DataLoader(
             self.cifar10_trainₙ, self.batch_sizeₙ, shuffle=True,
             num_workers=self.num_workers, pin_memory=self.pin_memory)
-        return {'clean': loaderₗ, 'noisy': loaderₙ}
+        if self.batch_sizeₗ > 0:
+            loaderₗ = torch.utils.data.DataLoader(
+                self.cifar10_trainₗ, self.batch_sizeₗ, shuffle=True,
+                num_workers=self.num_workers, pin_memory=self.pin_memory)
+            return {'clean': loaderₗ, 'noisy': loaderₙ}
+        else:
+            return {'noisy': loaderₙ}
 
     def val_dataloader(self):
-        batch_size = max(self.batch_sizeₗ, self.batch_sizeₙ) * 2
         return torch.utils.data.DataLoader(
-            self.cifar10_valid, batch_size, shuffle=False,
+            self.cifar10_valid, self.valid_batch_size, shuffle=False,
             num_workers=self.num_workers, pin_memory=self.pin_memory)
 
     def test_dataloader(self):

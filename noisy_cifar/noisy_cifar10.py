@@ -56,9 +56,10 @@ class NoisyCIFAR10(pl.LightningDataModule):
         self.clean_cifar10.targets = numpy.array(self.clean_cifar10.targets)[clean_indices]
 
         if self.expand_clean:
-            train_iter = numpy.ceil(50000 / self.batch_size['noisy'])
+            train_iter = int(numpy.ceil(50000 / self.batch_size['noisy']))
             multiplier = train_iter * self.batch_size['clean'] // len(self.clean_cifar10)
-            self.clean_cifar10 = ConcatDataset([self.clean_cifar10] * multiplier)
+            if multiplier > 1:
+                self.clean_cifar10 = ConcatDataset([self.clean_cifar10] * multiplier)
 
         self.noisy_cifar10 = CIFAR10(self.root, train=True, transform=self.noisy_transform)
         noisy_targets = noisify(self.noisy_cifar10.targets, self.T, self.random_state)

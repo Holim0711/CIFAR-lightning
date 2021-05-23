@@ -66,13 +66,13 @@ class NoisyCIFAR10(pl.LightningDataModule):
 
         self.noisy_cifar10 = CIFAR10(self.root, train=True, transform=self.noisy_transform)
         noisy_targets = noisify(self.noisy_cifar10.targets, self.T, self.random_state)
-        self.noisy_cifar10.targets = numpy.array(list(zip(noisy_targets, self.noisy_cifar10.targets)))
+        self.noisy_cifar10.targets = list(zip(noisy_targets, self.noisy_cifar10.targets))
 
         if self.exclude_clean:
             mask = numpy.ones(len(self.noisy_cifar10), dtype=bool)
             mask[clean_indices] = False
             self.noisy_cifar10.data = self.noisy_cifar10.data[mask]
-            self.noisy_cifar10.targets = self.noisy_cifar10.targets[mask]
+            self.noisy_cifar10.targets = numpy.array(self.noisy_cifar10.targets)[mask].tolist()
 
         self.valid_cifar10 = CIFAR10(self.root, train=False, transform=self.valid_transform)
 

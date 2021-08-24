@@ -74,6 +74,7 @@ class NoisyCIFAR10(pl.LightningDataModule):
             dataset['clean'] = ConcatDataset([dataset['clean']] * self.multiply_clean)
 
         self.dataset = dataset
+        self.clean_indices = clean_indices
 
     def dataloader(self, split):
         num_workers = self.num_workers[split] or self.dynamic_num_workers[split]

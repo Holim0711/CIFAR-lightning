@@ -5,13 +5,12 @@ import numpy as np
 __all__ = [
     'transition_matrix_cifar10',
     'transition_matrix_cifar100',
-    'noisify',
 ]
 
 
 def uniform(size, noise_ratio):
     P = noise_ratio / (size - 1) * np.ones((size, size))
-    np.fill_diagonal(P, (1 - noise_ratio) * np.ones(size))
+    np.fill_diagonal(P, 1 - noise_ratio)
     return P
 
 
@@ -32,14 +31,10 @@ def transition_matrix_cifar100(noise_type, noise_ratio):
     if noise_type == 'symmetric':
         P = uniform(100, noise_ratio)
     elif noise_type == 'asymmetric':
-        # flipped within the same superclass ({0..4}, ..., {95..99})
+        # flip within the same superclass ({0..4}, ..., {95..99})
         P = (1 - noise_ratio) * np.eye(100)
         for i in range(20):
             for j in range(4):
                 P[5 * i + j, 5 * i + j + 1] = noise_ratio
             P[5 * i + 4, 5 * i] = noise_ratio
     return P
-
-
-def noisify(y, P, random_state=None):
-    return [random_state.multinomial(1, P[c]).argmax() for c in y]

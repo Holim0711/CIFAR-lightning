@@ -53,9 +53,9 @@ class NoisyCIFAR10(pl.LightningDataModule):
 
     def setup(self, stage=None):
         dataset = {
-            'clean': CIFAR10(self.root, train=True, transform=self.transform['clean']),
-            'noisy': CIFAR10(self.root, train=True, transform=self.transform['noisy']),
-            'valid': CIFAR10(self.root, train=False, transform=self.transform['valid']),
+            'clean': CIFAR10(self.root, train=True, transform=self.transform.get('clean')),
+            'noisy': CIFAR10(self.root, train=True, transform=self.transform.get('noisy')),
+            'valid': CIFAR10(self.root, train=False, transform=self.transform.get('valid')),
         }
 
         # select clean data

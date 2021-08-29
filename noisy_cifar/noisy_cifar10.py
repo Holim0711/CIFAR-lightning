@@ -30,7 +30,7 @@ class NoisyCIFAR10(pl.LightningDataModule):
         self.shuffle = shuffle                  # dataloader parameter
         self.num_workers = num_workers          # dataloader parameter
         self.pin_memory = pin_memory            # dataloader parameter
-        self.random_state = numpy.random.RandomState(random_seed)
+        self.random_seed = random_seed
 
         assert isinstance(num_clean, int) and num_clean >= 0
         assert noise_type in {'symmetric', 'asymmetric'}
@@ -52,6 +52,8 @@ class NoisyCIFAR10(pl.LightningDataModule):
         CIFAR10(self.root, download=True)
 
     def setup(self, stage=None):
+        random_state = numpy.random.RandomState(self.random_seed)
+
         dataset = {
             'clean': CIFAR10(self.root, train=True, transform=self.transform.get('clean')),
             'noisy': CIFAR10(self.root, train=True, transform=self.transform.get('noisy')),
@@ -59,12 +61,12 @@ class NoisyCIFAR10(pl.LightningDataModule):
         }
 
         # select clean data
-        clean_indices = random_select(dataset['clean'].targets, self.num_clean, self.random_state)
+        clean_indices = random_select(dataset['clean'].targets, self.num_clean, random_state)
         dataset['clean'].data = dataset['clean'].data[clean_indices]
         dataset['clean'].targets = numpy.array(dataset['clean'].targets)[clean_indices]
 
         # randomly flip to build noisy data
-        dataset['noisy'].targets = random_noisify(dataset['noisy'].targets, self.T, self.random_state)
+        dataset['noisy'].targets = random_noisify(dataset['noisy'].targets, self.T, random_state)
 
         if self.exclude_clean:
             dataset['noisy'].data = numpy.delete(dataset['noisy'].data, clean_indices, axis=0)

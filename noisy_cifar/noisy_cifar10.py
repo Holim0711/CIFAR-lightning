@@ -38,16 +38,6 @@ class NoisyCIFAR10(pl.LightningDataModule):
 
         self.T = transition_matrix_cifar10(noise_type, noise_ratio)
 
-    @property
-    def dynamic_num_workers(self):
-        n = os.cpu_count()
-        train_batch_size = self.batch_size['clean'] + self.batch_size['noisy']
-        return {
-            'clean': n * self.batch_size['clean'] // train_batch_size,
-            'noisy': n * self.batch_size['noisy'] // train_batch_size,
-            'valid': n,
-        }
-
     def prepare_data(self):
         CIFAR10(self.root, download=True)
 
@@ -79,11 +69,10 @@ class NoisyCIFAR10(pl.LightningDataModule):
         self.clean_indices = clean_indices
 
     def dataloader(self, split):
-        num_workers = self.num_workers[split] or self.dynamic_num_workers[split]
         return DataLoader(self.dataset[split],
                           batch_size=self.batch_size[split],
                           shuffle=self.shuffle[split],
-                          num_workers=num_workers,
+                          num_workers=os.cpu_count(),
                           pin_memory=self.pin_memory[split])
 
     def train_dataloader(self):

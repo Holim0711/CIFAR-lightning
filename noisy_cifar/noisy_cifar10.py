@@ -17,7 +17,7 @@ class NoisyCIFAR10(pl.LightningDataModule):
         num_clean: int,
         noise_type: str,
         noise_ratio: float,
-        exclude_clean: bool = True,
+        exclude_clean: bool = False,
         multiply_clean: int = 1,
         transform_clean: Callable = ToTensor(),
         transform_noisy: Callable = ToTensor(),

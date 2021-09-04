@@ -10,6 +10,7 @@ from .utils import random_select, random_noisify
 
 
 class NoisyCIFAR10(pl.LightningDataModule):
+    num_classes = 10
 
     def __init__(
         self,
@@ -107,12 +108,13 @@ class NoisyCIFAR10(pl.LightningDataModule):
         )
 
     def train_dataloader(self):
-        loader = {}
-        if self.batch_size['clean'] > 0:
-            loader['clean'] = self.dataloader('clean')
-        if self.batch_size['noisy'] > 0:
-            loader['noisy'] = self.dataloader('noisy')
-        return loader
+        if self.batch_size['clean'] == 0:
+            return self.dataloader('noisy')
+        elif self.batch_size['noisy'] == 0:
+            return self.dataloader('clean')
+        else:
+            return {'clean': self.dataloader('clean'),
+                    'noisy': self.dataloader('noisy')}
 
     def val_dataloader(self):
         return self.dataloader('valid')

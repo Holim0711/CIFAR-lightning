@@ -1,5 +1,6 @@
 import os
 import numpy
+from typing import Callable
 import pytorch_lightning as pl
 from torchvision.datasets import CIFAR10
 from torchvision.transforms import ToTensor
@@ -10,14 +11,22 @@ from .utils import random_select, random_noisify
 
 class NoisyCIFAR10(pl.LightningDataModule):
 
-    def __init__(self, root, num_clean, noise_type, noise_ratio,
-                 exclude_clean=True, multiply_clean=1,
-                 transform={'clean': ToTensor(), 'noisy': ToTensor(), 'valid': ToTensor()},
-                 batch_size={'clean': 0, 'noisy': 1, 'valid': 1},
-                 shuffle={'clean': True, 'noisy': True, 'valid': False},
-                 num_workers={'clean': None, 'noisy': None, 'valid': None},
-                 pin_memory={'clean': True, 'noisy': True, 'valid': True},
-                 random_seed=1234):
+    def __init__(
+        self,
+        root: str,
+        num_clean: int,
+        noise_type: str,
+        noise_ratio: float,
+        exclude_clean: bool = True,
+        multiply_clean: int = 1,
+        transform_clean: Callable = ToTensor(),
+        transform_noisy: Callable = ToTensor(),
+        transform_valid: Callable = ToTensor(),
+        batch_size_clean: int = 1,
+        batch_size_noisy: int = 1,
+        batch_size_valid: int = 1,
+        dataset_random_seed: int = 1234
+    ):
         super().__init__()
         self.root = root
         self.num_clean = num_clean              # important!
@@ -25,29 +34,49 @@ class NoisyCIFAR10(pl.LightningDataModule):
         self.noise_ratio = noise_ratio          # important!
         self.exclude_clean = exclude_clean      # exclude clean data from noisy data
         self.multiply_clean = multiply_clean    # multiply small clean data to reduce reloading
-        self.transform = transform              # dataset parameter
-        self.batch_size = batch_size            # dataloader parameter
-        self.shuffle = shuffle                  # dataloader parameter
-        self.num_workers = num_workers          # dataloader parameter
-        self.pin_memory = pin_memory            # dataloader parameter
-        self.random_seed = random_seed
+        self.transform = {
+            'clean': transform_clean,
+            'noisy': transform_noisy,
+            'valid': transform_valid,
+        }
+        self.batch_size = {
+            'clean': batch_size_clean,
+            'noisy': batch_size_noisy,
+            'valid': batch_size_valid,
+        }
+        self.dataset_random_seed = dataset_random_seed
 
-        assert isinstance(num_clean, int) and num_clean >= 0
-        assert noise_type in {'symmetric', 'asymmetric'}
-        assert 0 <= noise_ratio <= 1
+    @classmethod
+    def add_argparse_args(cls, parent_parser):
+        parser = parent_parser.add_argument_group(cls.__name__)
+        parser.add_argument("--num_clean", type=int, required=True)
+        parser.add_argument('--noise_type', type=str, choices=['symmetric', 'asymmetric'], required=True)
+        parser.add_argument("--noise_ratio", type=float, choices=[x/10 for x in range(11)], required=True)
+        parser.add_argument('--exclude_clean', action='store_true')
+        parser.add_argument('--multiply_clean', type=int, default=1)
+        parser.add_argument('--dataset_random_seed', type=int, default=1234)
+        return parent_parser
 
-        self.T = transition_matrix_cifar10(noise_type, noise_ratio)
+    @classmethod
+    def from_argparse_args(cls, root, args, **kwargs):
+        kwargs['num_clean'] = args.num_clean
+        kwargs['noise_type'] = args.noise_type
+        kwargs['noise_ratio'] = args.noise_ratio
+        kwargs['exclude_clean'] = args.exclude_clean
+        kwargs['multiply_clean'] = args.multiply_clean
+        kwargs['dataset_random_seed'] = args.dataset_random_seed
+        return cls(root, **kwargs)
 
     def prepare_data(self):
         CIFAR10(self.root, download=True)
 
     def setup(self, stage=None):
-        random_state = numpy.random.RandomState(self.random_seed)
+        random_state = numpy.random.RandomState(self.dataset_random_seed)
 
         dataset = {
-            'clean': CIFAR10(self.root, train=True, transform=self.transform.get('clean')),
-            'noisy': CIFAR10(self.root, train=True, transform=self.transform.get('noisy')),
-            'valid': CIFAR10(self.root, train=False, transform=self.transform.get('valid')),
+            'clean': CIFAR10(self.root, train=True, transform=self.transform['clean']),
+            'noisy': CIFAR10(self.root, train=True, transform=self.transform['noisy']),
+            'valid': CIFAR10(self.root, train=False, transform=self.transform['valid']),
         }
 
         # select clean data
@@ -56,7 +85,8 @@ class NoisyCIFAR10(pl.LightningDataModule):
         dataset['clean'].targets = numpy.array(dataset['clean'].targets)[clean_indices]
 
         # randomly flip to build noisy data
-        dataset['noisy'].targets = random_noisify(dataset['noisy'].targets, self.T, random_state)
+        T = transition_matrix_cifar10(self.noise_type, self.noise_ratio)
+        dataset['noisy'].targets = random_noisify(dataset['noisy'].targets, T, random_state)
 
         if self.exclude_clean:
             dataset['noisy'].data = numpy.delete(dataset['noisy'].data, clean_indices, axis=0)
@@ -66,14 +96,15 @@ class NoisyCIFAR10(pl.LightningDataModule):
             dataset['clean'] = ConcatDataset([dataset['clean']] * self.multiply_clean)
 
         self.dataset = dataset
-        self.clean_indices = clean_indices
 
-    def dataloader(self, split):
-        return DataLoader(self.dataset[split],
-                          batch_size=self.batch_size[split],
-                          shuffle=self.shuffle[split],
-                          num_workers=os.cpu_count(),
-                          pin_memory=self.pin_memory[split])
+    def dataloader(self, split, shuffle=None, num_workers=None, pin_memory=True):
+        return DataLoader(
+            self.dataset[split],
+            self.batch_size[split],
+            shuffle=(split != 'valid') if shuffle is None else shuffle,
+            num_workers=os.cpu_count() if num_workers is None else num_workers,
+            pin_memory=pin_memory,
+        )
 
     def train_dataloader(self):
         loader = {}

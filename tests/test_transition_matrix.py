@@ -1,7 +1,6 @@
 import os
 import numpy
 from noisy_cifar import NoisyCIFAR10
-from torchvision.datasets import CIFAR10
 
 
 def test_stat_cifar10(num_clean, noise_type, noise_ratio):
@@ -23,19 +22,17 @@ def test_stat_cifar10(num_clean, noise_type, noise_ratio):
     print("valid:", len(dm.val_dataloader()))
 
     print("----- transition matrix -----")
-    cifar10 = CIFAR10(dm.root)
-    cifar10.data = numpy.delete(cifar10.data, dm.clean_indices, axis=0)
-    cifar10.targets = numpy.delete(cifar10.targets, dm.clean_indices, axis=0)
+    clean = NoisyCIFAR10(
+        root=os.path.join(os.path.dirname(__file__), 'data'),
+        num_clean=num_clean, noise_type='symmetric', noise_ratio=0.)
+    clean.prepare_data()
+    clean.setup()
 
     T = numpy.zeros((10, 10), dtype=int)
-    for x, y in zip(cifar10.targets, dm.dataset['noisy'].targets):
+    for x, y in zip(clean.dataset['noisy'].targets, dm.dataset['noisy'].targets):
         T[x][y] += 1
     T = T / T.sum(axis=1)
 
-    print(f"similarity: {(1 - numpy.linalg.norm(dm.T - T) / numpy.linalg.norm(dm.T)) * 100:.3f}%")
-
-    numpy.set_printoptions(precision=3)
-    print(dm.T)
     print(T)
 
 

@@ -2,15 +2,17 @@ import os
 import numpy
 from typing import Callable
 import pytorch_lightning as pl
-from torchvision.datasets import CIFAR10
+from torchvision.datasets import CIFAR10, CIFAR100
 from torchvision.transforms import ToTensor
 from torch.utils.data import ConcatDataset, DataLoader
-from .transition_matrix import transition_matrix_cifar10
+from .transition_matrix import *
 from .utils import random_select, random_noisify
 
 
-class NoisyCIFAR10(pl.LightningDataModule):
-    num_classes = 10
+__all__ = ['NoisyCIFAR10', 'NoisyCIFAR100']
+
+
+class NoisyCIFAR(pl.LightningDataModule):
 
     def __init__(
         self,
@@ -69,15 +71,15 @@ class NoisyCIFAR10(pl.LightningDataModule):
         return cls(root, **kwargs)
 
     def prepare_data(self):
-        CIFAR10(self.root, download=True)
+        self.CIFAR(self.root, download=True)
 
     def setup(self, stage=None):
         random_state = numpy.random.RandomState(self.dataset_random_seed)
 
         dataset = {
-            'clean': CIFAR10(self.root, train=True, transform=self.transform['clean']),
-            'noisy': CIFAR10(self.root, train=True, transform=self.transform['noisy']),
-            'valid': CIFAR10(self.root, train=False, transform=self.transform['valid']),
+            'clean': self.CIFAR(self.root, train=True, transform=self.transform['clean']),
+            'noisy': self.CIFAR(self.root, train=True, transform=self.transform['noisy']),
+            'valid': self.CIFAR(self.root, train=False, transform=self.transform['valid']),
         }
 
         # select clean data
@@ -86,7 +88,7 @@ class NoisyCIFAR10(pl.LightningDataModule):
         dataset['clean'].targets = numpy.array(dataset['clean'].targets)[clean_indices]
 
         # randomly flip to build noisy data
-        T = transition_matrix_cifar10(self.noise_type, self.noise_ratio)
+        T = self.transition_matrix(self.noise_type, self.noise_ratio)
         dataset['noisy'].targets = random_noisify(dataset['noisy'].targets, T, random_state)
 
         if self.exclude_clean:
@@ -121,3 +123,15 @@ class NoisyCIFAR10(pl.LightningDataModule):
 
     def test_dataloader(self):
         return self.val_dataloader()
+
+
+class NoisyCIFAR10(NoisyCIFAR):
+    num_classes = 10
+    CIFAR = CIFAR10
+    transition_matrix = staticmethod(transition_matrix_cifar10)
+
+
+class NoisyCIFAR100(NoisyCIFAR):
+    num_classes = 100
+    CIFAR = CIFAR100
+    transition_matrix = staticmethod(transition_matrix_cifar100)

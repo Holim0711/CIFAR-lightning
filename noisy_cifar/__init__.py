@@ -1,1 +1,1 @@
-from .noisy_cifar10 import NoisyCIFAR10
+from .noisy_cifar import *

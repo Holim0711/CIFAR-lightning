@@ -18,8 +18,8 @@ class NoisyCIFAR(pl.LightningDataModule):
         self,
         root: str,
         num_clean: int,
-        noise_type: str,
-        noise_ratio: float,
+        noise_type: str = 'symmetric',
+        noise_ratio: float = 0.0,
         exclude_clean: bool = False,
         multiply_clean: int = 1,
         transform_clean: Callable = ToTensor(),
@@ -53,8 +53,8 @@ class NoisyCIFAR(pl.LightningDataModule):
     def add_argparse_args(cls, parent_parser):
         parser = parent_parser.add_argument_group(cls.__name__)
         parser.add_argument("--num_clean", type=int, required=True)
-        parser.add_argument('--noise_type', type=str, choices=['symmetric', 'asymmetric'], required=True)
-        parser.add_argument("--noise_ratio", type=float, choices=[x/10 for x in range(11)], required=True)
+        parser.add_argument('--noise_type', type=str, choices=['symmetric', 'asymmetric'], default='symmetric')
+        parser.add_argument("--noise_ratio", type=float, choices=[x/10 for x in range(11)], default=0.0)
         parser.add_argument('--exclude_clean', action='store_true')
         parser.add_argument('--multiply_clean', type=int, default=1)
         parser.add_argument('--dataset_random_seed', type=int, default=1234)

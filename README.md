@@ -1,1 +1,1 @@
-# NoisyCIFAR-Lightning
+# CIFAR-Lightning

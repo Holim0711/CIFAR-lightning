@@ -6,13 +6,13 @@ from torchvision.datasets import CIFAR10, CIFAR100
 from torchvision.transforms import ToTensor
 from torch.utils.data import ConcatDataset, DataLoader
 from .transition_matrix import *
-from .utils import random_select, random_noisify
+from .utils import *
 
 
-__all__ = ['NoisyCIFAR10', 'NoisyCIFAR100']
+__all__ = ['LNLCIFAR10', 'LNLCIFAR100', 'SSLCIFAR10', 'SSLCIFAR100']
 
 
-class NoisyCIFAR(pl.LightningDataModule):
+class LNLCIFAR(pl.LightningDataModule):
 
     def __init__(
         self,
@@ -88,8 +88,9 @@ class NoisyCIFAR(pl.LightningDataModule):
         dataset['clean'].targets = numpy.array(dataset['clean'].targets)[clean_indices]
 
         # randomly flip to build noisy data
-        T = self.transition_matrix(self.noise_type, self.noise_ratio)
-        dataset['noisy'].targets = random_noisify(dataset['noisy'].targets, T, random_state)
+        if self.noise_ratio > 0:
+            T = self.transition_matrix(self.noise_type, self.noise_ratio)
+            dataset['noisy'].targets = random_noisify(dataset['noisy'].targets, T, random_state)
 
         if self.exclude_clean:
             dataset['noisy'].data = numpy.delete(dataset['noisy'].data, clean_indices, axis=0)
@@ -110,13 +111,12 @@ class NoisyCIFAR(pl.LightningDataModule):
         )
 
     def train_dataloader(self):
-        if self.batch_size['clean'] == 0:
-            return self.dataloader('noisy')
-        elif self.batch_size['noisy'] == 0:
-            return self.dataloader('clean')
-        else:
-            return {'clean': self.dataloader('clean'),
-                    'noisy': self.dataloader('noisy')}
+        loaders = {}
+        if self.batch_size['clean'] != 0:
+            loaders['clean'] = self.dataloader('clean')
+        if self.batch_size['noisy'] != 0:
+            loaders['noisy'] = self.dataloader('noisy')
+        return loaders
 
     def val_dataloader(self):
         return self.dataloader('valid')
@@ -125,13 +125,89 @@ class NoisyCIFAR(pl.LightningDataModule):
         return self.val_dataloader()
 
 
-class NoisyCIFAR10(NoisyCIFAR):
+class SSLCIFAR(LNLCIFAR):
+
+    def __init__(
+        self,
+        root: str,
+        num_labeled: int,
+        exclude_labeled: bool = False,
+        multiply_labeled: int = 1,
+        transform_labeled: Callable = ToTensor(),
+        transform_unlabeled: Callable = ToTensor(),
+        transform_valid: Callable = ToTensor(),
+        batch_size_labeled: int = 1,
+        batch_size_unlabeled: int = 1,
+        batch_size_valid: int = 1,
+        dataset_random_seed: int = 1234
+    ):
+        super().__init__(
+            root,
+            num_clean=num_labeled,
+            exclude_clean=exclude_labeled,
+            multiply_clean=multiply_labeled,
+            transform_clean=transform_labeled,
+            transform_noisy=transform_unlabeled,
+            transform_valid=transform_valid,
+            batch_size_clean=batch_size_labeled,
+            batch_size_noisy=batch_size_unlabeled,
+            batch_size_valid=batch_size_valid,
+            dataset_random_seed=dataset_random_seed 
+        )
+        self.transform['labeled'] = self.transform.pop('clean')
+        self.transform['unlabeled'] = self.transform.pop('noisy')
+        self.batch_size['labeled'] = self.batch_size.pop('clean')
+        self.batch_size['unlabeled'] = self.batch_size.pop('noisy')
+
+    @classmethod
+    def add_argparse_args(cls, parent_parser):
+        parser = parent_parser.add_argument_group(cls.__name__)
+        parser.add_argument("--num_labeled", type=int, required=True)
+        parser.add_argument('--exclude_labeled', action='store_true')
+        parser.add_argument('--multiply_labeled', type=int, default=1)
+        parser.add_argument('--dataset_random_seed', type=int, default=1234)
+        return parent_parser
+
+    @classmethod
+    def from_argparse_args(cls, root, args, **kwargs):
+        kwargs['num_labeled'] = args.num_labeled
+        kwargs['exclude_labeled'] = args.exclude_labeled
+        kwargs['multiply_labeled'] = args.multiply_labeled
+        kwargs['dataset_random_seed'] = args.dataset_random_seed
+        return cls(root, **kwargs)
+
+    def setup(self, stage=None):
+        super().setup(stage=stage)
+        self.dataset['labeled'] = self.dataset.pop('clean')
+        self.dataset['unlabeled'] = self.dataset.pop('noisy')
+        self.dataset['unlabeled'].target_transform = lambda x : -1
+
+    def train_dataloader(self):
+        loaders = {}
+        if self.batch_size['labeled'] != 0:
+            loaders['labeled'] = self.dataloader('labeled')
+        if self.batch_size['unlabeled'] != 0:
+            loaders['unlabeled'] = self.dataloader('unlabeled')
+        return loaders
+
+
+class LNLCIFAR10(LNLCIFAR):
     num_classes = 10
     CIFAR = CIFAR10
     transition_matrix = staticmethod(transition_matrix_cifar10)
 
 
-class NoisyCIFAR100(NoisyCIFAR):
+class LNLCIFAR100(LNLCIFAR):
     num_classes = 100
     CIFAR = CIFAR100
     transition_matrix = staticmethod(transition_matrix_cifar100)
+
+
+class SSLCIFAR10(SSLCIFAR):
+    num_classes = 10
+    CIFAR = CIFAR10
+
+
+class SSLCIFAR100(SSLCIFAR):
+    num_classes = 100
+    CIFAR = CIFAR100

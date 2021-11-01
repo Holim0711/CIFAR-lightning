@@ -10,7 +10,7 @@ from torchvision.transforms import ToTensor
 from .utils import random_select
 
 
-class BaseCIFAR(LightningDataModule):
+class DualCIFAR(LightningDataModule):
 
     def __init__(
         self,
@@ -43,8 +43,12 @@ class BaseCIFAR(LightningDataModule):
         self.setup_d0(d0, random_state)  # setup for the clean/labeled
         self.setup_d1(d1, random_state)  # setup for the noisy/unlabeled
 
-        m = math.ceil((len(d1) * self.batch_sizes[self.splits[0]]) /
-                      (len(d0) * self.batch_sizes[self.splits[1]] * 2))
+        try:
+            m = math.ceil((len(d1) * self.batch_sizes[self.splits[0]]) /
+                          (len(d0) * self.batch_sizes[self.splits[1]] * 2))
+        except ZeroDivisionError:
+            m = 1
+
         d0 = ConcatDataset([d0] * m)
 
         self.datasets = dict(zip(self.splits, [d0, d1, d2]))

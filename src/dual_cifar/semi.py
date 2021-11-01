@@ -1,10 +1,10 @@
 from torchvision.datasets import CIFAR10, CIFAR100
-from .base import BaseCIFAR
+from .base import DualCIFAR
 
 __all__ = ['SemiCIFAR10', 'SemiCIFAR100']
 
 
-class SemiCIFAR(BaseCIFAR):
+class SemiCIFAR(DualCIFAR):
     splits = ['labeled', 'unlabeled', 'val']
 
 

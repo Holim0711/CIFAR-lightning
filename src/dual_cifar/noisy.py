@@ -1,11 +1,11 @@
 from torchvision.datasets import CIFAR10, CIFAR100
 from .utils import *
-from .base import BaseCIFAR
+from .base import DualCIFAR
 
 __all__ = ['NoisyCIFAR10', 'NoisyCIFAR100']
 
 
-class NoisyCIFAR(BaseCIFAR):
+class NoisyCIFAR(DualCIFAR):
     splits = ['clean', 'noisy', 'val']
 
     def __init__(

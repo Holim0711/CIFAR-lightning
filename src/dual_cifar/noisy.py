@@ -1,3 +1,5 @@
+from typing import Callable, Optional
+from collections.abc import Mapping
 from torchvision.datasets import CIFAR10, CIFAR100
 from .utils import *
 from .base import DualCIFAR
@@ -10,12 +12,18 @@ class NoisyCIFAR(DualCIFAR):
 
     def __init__(
         self,
-        *args,
+        root: str,
+        n: int,
         noise_type: str = 'symmetric',
         noise_ratio: float = 0.0,
-        **kwargs
+        transforms: Mapping[str, Callable] = {},
+        batch_sizes: Mapping[str, int] = {},
+        random_seed: Optional[int] = 1234,
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__(root, n,
+                         transforms=transforms,
+                         batch_sizes=batch_sizes,
+                         random_seed=random_seed)
         self.noise_type = noise_type
         self.noise_ratio = noise_ratio
         assert noise_type in {'symmetric', 'asymmetric'}, "noise type error"

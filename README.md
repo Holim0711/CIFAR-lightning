@@ -1,1 +1,1 @@
-# CIFAR-Lightning
+# Deficient CIFAR

@@ -2,12 +2,12 @@ from typing import Callable, Optional
 from collections.abc import Mapping
 from torchvision.datasets import CIFAR10, CIFAR100
 from .utils import *
-from .base import DualCIFAR
+from .base import DeficientCIFAR
 
 __all__ = ['NoisyCIFAR10', 'NoisyCIFAR100']
 
 
-class NoisyCIFAR(DualCIFAR):
+class NoisyCIFAR(DeficientCIFAR):
     splits = ['clean', 'noisy', 'val']
 
     def __init__(

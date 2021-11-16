@@ -10,7 +10,7 @@ from torchvision.transforms import ToTensor
 from .utils import random_select
 
 
-class DualCIFAR(LightningDataModule):
+class DeficientCIFAR(LightningDataModule):
 
     def __init__(
         self,

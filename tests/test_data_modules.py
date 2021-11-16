@@ -1,6 +1,6 @@
 import unittest
 import tempfile
-from dual_cifar import *
+from deficient_cifar import *
 
 
 class TestDataModules(unittest.TestCase):

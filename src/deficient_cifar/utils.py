@@ -1,10 +1,12 @@
 import numpy as np
+from torch.utils.data import Dataset
 
 __all__ = [
     'random_select',
     'random_noisify',
     'transition_matrix_cifar10',
     'transition_matrix_cifar100',
+    'IndexedDataset',
 ]
 
 
@@ -58,3 +60,14 @@ def transition_matrix_cifar100(noise_type, noise_ratio):
                 P[5 * i + j, 5 * i + j + 1] = noise_ratio
             P[5 * i + 4, 5 * i] = noise_ratio
     return P
+
+
+class IndexedDataset(Dataset):
+    def __init__(self, dataset):
+        self.dataset = dataset
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def __getitem__(self, index):
+        return index, super().__getitem__(index)

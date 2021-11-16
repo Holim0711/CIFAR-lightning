@@ -1,6 +1,3 @@
-from typing import Callable, Optional
-from collections.abc import Mapping
-from torchvision.datasets import CIFAR10, CIFAR100
 from .utils import *
 from .base import DeficientCIFAR
 
@@ -12,20 +9,22 @@ class NoisyCIFAR(DeficientCIFAR):
 
     def __init__(
         self,
-        root: str,
-        n: int,
+        *args,
         noise_type: str = 'symmetric',
         noise_ratio: float = 0.0,
-        transforms: Mapping[str, Callable] = {},
-        batch_sizes: Mapping[str, int] = {},
-        random_seed: Optional[int] = 1234,
+        **kwargs
     ):
-        super().__init__(root, n,
-                         transforms=transforms,
-                         batch_sizes=batch_sizes,
-                         random_seed=random_seed)
+        super().__init__(*args, **kwargs)
         self.noise_type = noise_type
         self.noise_ratio = noise_ratio
+
+        if self.num_classes == 10:
+            self.transition_matrix = transition_matrix_cifar10
+        elif self.num_classes == 100:
+            self.transition_matrix = transition_matrix_cifar100
+        else:
+            raise ValueError(f'num_classes error: {self.num_classes}')
+
         assert noise_type in {'symmetric', 'asymmetric'}, "noise type error"
         assert 0 <= noise_ratio <= 1, "noise ratio error"
 
@@ -37,11 +36,7 @@ class NoisyCIFAR(DeficientCIFAR):
 
 class NoisyCIFAR10(NoisyCIFAR):
     num_classes = 10
-    CIFAR = CIFAR10
-    transition_matrix = staticmethod(transition_matrix_cifar10)
 
 
 class NoisyCIFAR100(NoisyCIFAR):
     num_classes = 100
-    CIFAR = CIFAR100
-    transition_matrix = staticmethod(transition_matrix_cifar100)

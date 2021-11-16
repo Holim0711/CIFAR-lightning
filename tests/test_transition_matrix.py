@@ -1,3 +1,4 @@
+import os
 import unittest
 import tempfile
 import numpy as np
@@ -5,11 +6,21 @@ from deficient_cifar import NoisyCIFAR10, NoisyCIFAR100
 
 
 class TestTransitionMatrix(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmpdir = tempfile.TemporaryDirectory()
+        cls.root = cls.tmpdir.name
+
     def setUp(self):
-        self.root = tempfile.TemporaryDirectory()
+        pass
 
     def routine(self, Class, noise_type, noise_ratio):
-        dm = Class(self.root.name, 0,
+        if Class.num_classes == 10:
+            path = os.path.join(self.root, 'CIFAR-10')
+        elif Class.num_classes == 100:
+            path = os.path.join(self.root, 'CIFAR-100')
+
+        dm = Class(path, 0,
                    noise_type=noise_type, noise_ratio=noise_ratio)
         dm.prepare_data()
         dm.setup()

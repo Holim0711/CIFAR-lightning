@@ -1,17 +1,28 @@
+import os
 import unittest
 import tempfile
 from deficient_cifar import *
 
 
 class TestDataModules(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmpdir = tempfile.TemporaryDirectory()
+        cls.root = cls.tmpdir.name
+
     def setUp(self):
-        self.root = tempfile.TemporaryDirectory()
+        pass
 
     def routine(self, Class, n):
         s = Class.splits
+        batch_sizes = {s[0]: 64, s[1]: 448, s[2]: 512}
 
-        dm = Class(self.root.name, n,
-                   batch_sizes={s[0]: 64, s[1]: 448, s[2]: 512})
+        if Class.num_classes == 10:
+            path = os.path.join(self.root, 'CIFAR-10')
+        elif Class.num_classes == 100:
+            path = os.path.join(self.root, 'CIFAR-100')
+
+        dm = Class(path, n, batch_sizes=batch_sizes)
         dm.prepare_data()
         dm.setup()
 

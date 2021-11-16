@@ -2,7 +2,6 @@ import os
 import math
 import numpy
 from typing import Callable, Optional
-from collections.abc import Mapping
 from collections import defaultdict
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import ConcatDataset, DataLoader
@@ -42,11 +41,9 @@ CIFAR100_CLASSES = [
 class DeficientCIFAR(LightningDataModule):
 
     def __init__(
-        self,
-        root: str,
-        n: int,
-        transforms: Mapping[str, Callable] = {},
-        batch_sizes: Mapping[str, int] = {},
+        self, root: str, num_proved: int,
+        transforms: dict[str, Callable] = {},
+        batch_sizes: dict[str, int] = {},
         random_seed: Optional[int] = 1234,
         show_indices: bool = False,
     ):
@@ -57,14 +54,14 @@ class DeficientCIFAR(LightningDataModule):
         elif self.num_classes == 100:
             self.CIFAR = CIFAR100
             self.classes = CIFAR100_CLASSES
-        else:
-            raise ValueError(f'num_classes error: {self.num_classes}')
+
         self.root = root
-        self.n = n
+        self.n = dict(zip(self.splits, [num_proved, 50000, 10000]))
         self.transforms = defaultdict(lambda: ToTensor(), **transforms)
         self.batch_sizes = defaultdict(lambda: 1, **batch_sizes)
         self.random_seed = random_seed
         self.show_indices = show_indices
+
         assert all(k in self.splits for k in transforms), "key error"
         assert all(k in self.splits for k in batch_sizes), "key error"
 
@@ -72,50 +69,56 @@ class DeficientCIFAR(LightningDataModule):
         self.CIFAR(self.root, download=True)
 
     def setup(self, stage=None):
-        random_state = numpy.random.RandomState(self.random_seed)
+        rng = numpy.random.RandomState(self.random_seed)
 
-        d0 = self.CIFAR(self.root, transform=self.transforms[self.splits[0]])
-        d1 = self.CIFAR(self.root, transform=self.transforms[self.splits[1]])
-        d2 = self.CIFAR(self.root, train=False,
-                        transform=self.transforms[self.splits[2]])
+        Dₚ = self.CIFAR(self.root, True, self.transforms[self.splits[0]])
+        Dᵤ = self.CIFAR(self.root, True, self.transforms[self.splits[1]])
+        Dᵥ = self.CIFAR(self.root, False, self.transforms[self.splits[2]])
 
-        self.setup_d0(d0, random_state)  # setup for the clean/labeled
-        self.setup_d1(d1, random_state)  # setup for the noisy/unlabeled
+        self.setup_proved(Dₚ, rng)
+        self.setup_unproved(Dᵤ, rng)
 
         if self.show_indices:
-            d0 = IndexedDataset(d0)
-            d1 = IndexedDataset(d1)
+            Dₚ = IndexedDataset(Dₚ)
+            Dᵤ = IndexedDataset(Dᵤ)
 
         try:
-            m = math.ceil((len(d1) * self.batch_sizes[self.splits[0]]) /
-                          (len(d0) * self.batch_sizes[self.splits[1]] * 2))
+            m = math.ceil((len(Dᵤ) * self.batch_sizes[self.splits[0]]) /
+                          (len(Dₚ) * self.batch_sizes[self.splits[1]] * 2))
+            Dₚ = ConcatDataset([Dₚ] * m)
         except ZeroDivisionError:
-            m = 1
+            pass
 
-        d0 = ConcatDataset([d0] * m)
+        self.datasets = dict(zip(self.splits, [Dₚ, Dᵤ, Dᵥ]))
 
-        self.datasets = dict(zip(self.splits, [d0, d1, d2]))
+    def setup_proved(self, Dₚ, rng):
+        indices = random_select(Dₚ.targets, self.n[self.splits[0]], rng)
+        Dₚ.data = Dₚ.data[indices]
+        Dₚ.targets = numpy.array(Dₚ.targets)[indices]
 
-    def setup_d0(self, d0, random_state):
-        indices = random_select(d0.targets, self.n, random_state)
-        d0.data = d0.data[indices]
-        d0.targets = numpy.array(d0.targets)[indices]
-
-    def setup_d1(self, d1, random_state):
+    def setup_unproved(self, Dᵤ, rng):
         pass
 
-    def dataloader(self, k: str):
+    def dataloader(
+        self, k: str,
+        shuffle: Optional[bool] = None,
+        num_workers: int = os.cpu_count(),
+        pin_memory: bool = True
+    ):
         return DataLoader(
             self.datasets[k],
             self.batch_sizes[k],
-            shuffle=(k != self.splits[2]),
-            num_workers=os.cpu_count(),
-            pin_memory=True,
+            shuffle=(k != self.splits[2]) if shuffle is None else shuffle,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
         )
 
     def train_dataloader(self):
-        return {self.splits[0]: self.dataloader(self.splits[0]),
-                self.splits[1]: self.dataloader(self.splits[1])}
+        if self.n[self.splits[0]] and self.batch_sizes[self.splits[0]]:
+            return {self.splits[0]: self.dataloader(self.splits[0]),
+                    self.splits[1]: self.dataloader(self.splits[1])}
+        else:
+            return self.dataloader(self.splits[1])
 
     def val_dataloader(self):
         return self.dataloader(self.splits[2])

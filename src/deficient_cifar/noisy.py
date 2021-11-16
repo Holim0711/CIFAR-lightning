@@ -1,5 +1,5 @@
-from .utils import *
 from .base import DeficientCIFAR
+from .utils import transition_matrix, random_noisify
 
 __all__ = ['NoisyCIFAR10', 'NoisyCIFAR100']
 
@@ -8,30 +8,19 @@ class NoisyCIFAR(DeficientCIFAR):
     splits = ['clean', 'noisy', 'val']
 
     def __init__(
-        self,
-        *args,
+        self, root: str, num_clean: int,
         noise_type: str = 'symmetric',
         noise_ratio: float = 0.0,
         **kwargs
     ):
-        super().__init__(*args, **kwargs)
+        super().__init__(root, num_clean, **kwargs)
         self.noise_type = noise_type
         self.noise_ratio = noise_ratio
+        self.T = transition_matrix(self.num_classes, noise_type, noise_ratio)
 
-        if self.num_classes == 10:
-            self.transition_matrix = transition_matrix_cifar10
-        elif self.num_classes == 100:
-            self.transition_matrix = transition_matrix_cifar100
-        else:
-            raise ValueError(f'num_classes error: {self.num_classes}')
-
-        assert noise_type in {'symmetric', 'asymmetric'}, "noise type error"
-        assert 0 <= noise_ratio <= 1, "noise ratio error"
-
-    def setup_d1(self, d1, random_state):
-        self.T = self.transition_matrix(self.noise_type, self.noise_ratio)
-        noisy_targets = random_noisify(d1.targets, self.T, random_state)
-        d1.targets = list(zip(noisy_targets, d1.targets))
+    def setup_unproved(self, Dᵤ, rng):
+        noisy_targets = random_noisify(Dᵤ.targets, self.T, rng)
+        Dᵤ.targets = list(zip(noisy_targets, Dᵤ.targets))
 
 
 class NoisyCIFAR10(NoisyCIFAR):

@@ -4,13 +4,12 @@ from torch.utils.data import Dataset
 __all__ = [
     'random_select',
     'random_noisify',
-    'transition_matrix_cifar10',
-    'transition_matrix_cifar100',
+    'transition_matrix',
     'IndexedDataset',
 ]
 
 
-def random_select(y, N, random_state):
+def random_select(y, N, rng):
     """ Select a total of 'N' indices equally for each class """
     y = np.array(y)
     C = np.unique(y)
@@ -19,14 +18,14 @@ def random_select(y, N, random_state):
     random_I = []
     for c in C:
         Iᶜ = np.where(y == c)[0]
-        random_Iᶜ = random_state.choice(Iᶜ, n, replace=False)
+        random_Iᶜ = rng.choice(Iᶜ, n, replace=False)
         random_I.extend(random_Iᶜ)
     return random_I
 
 
-def random_noisify(y, T, random_state):
+def random_noisify(y, T, rng):
     """ Noisify according to the transition matrix 'T' """
-    z = random_state.random((len(y), 1))
+    z = rng.random((len(y), 1))
     return (T[y].cumsum(axis=1) > z).argmax(axis=1)
 
 
@@ -60,6 +59,13 @@ def transition_matrix_cifar100(noise_type, noise_ratio):
                 P[5 * i + j, 5 * i + j + 1] = noise_ratio
             P[5 * i + 4, 5 * i] = noise_ratio
     return P
+
+
+def transition_matrix(num_classes, noise_type, noise_ratio):
+    if num_classes == 10:
+        return transition_matrix_cifar10(noise_type, noise_ratio)
+    if num_classes == 100:
+        return transition_matrix_cifar100(noise_type, noise_ratio)
 
 
 class IndexedDataset(Dataset):

@@ -73,4 +73,4 @@ class IndexedDataset(Dataset):
         return len(self.dataset)
 
     def __getitem__(self, index):
-        return index, super().__getitem__(index)
+        return index, self.dataset[index]

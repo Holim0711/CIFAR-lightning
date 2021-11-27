@@ -8,8 +8,12 @@ from deficient_cifar import NoisyCIFAR10, NoisyCIFAR100
 class TestTransitionMatrix(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.tmpdir = tempfile.TemporaryDirectory()
-        cls.root = cls.tmpdir.name
+        path = os.environ.get('DATASETS')
+        if path is None:
+            cls.tmpdir = tempfile.TemporaryDirectory()
+            cls.root = cls.tmpdir.name
+        else:
+            cls.root = path
 
     def setUp(self):
         pass

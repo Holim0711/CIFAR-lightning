@@ -2,29 +2,43 @@ import os
 import unittest
 import tempfile
 from deficient_cifar import *
+from torchvision.transforms import Compose, ToTensor, Lambda
 
 
 class TestDataModules(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.tmpdir = tempfile.TemporaryDirectory()
-        cls.root = cls.tmpdir.name
+        path = os.environ.get('DATASETS')
+        if path is None:
+            cls.tmpdir = tempfile.TemporaryDirectory()
+            cls.root = cls.tmpdir.name
+        else:
+            cls.root = path
 
     def setUp(self):
         pass
 
     def routine(self, Class, n):
         s = Class.splits
-        batch_sizes = {s[0]: 64, s[1]: 448, s[2]: 512}
 
-        if Class.num_classes == 10:
-            path = os.path.join(self.root, 'CIFAR-10')
-        elif Class.num_classes == 100:
-            path = os.path.join(self.root, 'CIFAR-100')
-
-        dm = Class(path, n, batch_sizes=batch_sizes)
+        dm = Class(
+            os.path.join(self.root, f'CIFAR-{Class.num_classes}'),
+            n,
+            batch_sizes={
+                s[0]: 64,
+                s[1]: 448,
+            },
+            transforms={
+                s[0]: Compose([ToTensor(), Lambda(lambda x: x[0])]),
+                s[1]: Compose([ToTensor(), Lambda(lambda x: x[:2])]),
+            }
+        )
         dm.prepare_data()
         dm.setup()
+
+        self.assertEqual(dm.n[s[0]], n)
+        self.assertEqual(dm.n[s[1]], 50000)
+        self.assertEqual(dm.n[s[2]], 10000)
 
         for x in dm.datasets[s[0]].datasets:
             self.assertEqual(len(x), n)
@@ -36,19 +50,28 @@ class TestDataModules(unittest.TestCase):
         self.assertTrue(len(dl[s[1]]) <= len(dl[s[0]]) * 2)
 
         for x, y in dl[s[0]]:
-            self.assertEqual(len(x), len(y))
+            break
+        self.assertEqual(x.shape, (64, 32, 32))
+        self.assertEqual(y.shape, (64,))
 
         if s[1] == 'unlabeled':
             for x, y in dl[s[1]]:
-                self.assertEqual(len(x), len(y))
+                break
+            self.assertEqual(x.shape, (448, 2, 32, 32))
+            self.assertEqual(y.shape, (448,))
         elif s[1] == 'noisy':
             for x, (y1, y2) in dl[s[1]]:
-                self.assertTrue(len(x) == len(y1) == len(y2))
+                break
+            self.assertEqual(x.shape, (448, 2, 32, 32))
+            self.assertEqual(y1.shape, (448,))
+            self.assertEqual(y2.shape, (448,))
         else:
             raise ValueError(f'Unknown split name: {s[1]}')
 
         for x, y in dm.val_dataloader():
-            self.assertEqual(len(x), len(y))
+            break
+        self.assertEqual(x.shape, (1, 3, 32, 32))
+        self.assertEqual(y.shape, (1,))
 
     def test_noisy_cifar_10(self):
         self.assertEqual(NoisyCIFAR10.splits[0], 'clean')

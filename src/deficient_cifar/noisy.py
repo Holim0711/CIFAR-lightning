@@ -18,9 +18,9 @@ class NoisyCIFAR(DeficientCIFAR):
         self.noise_ratio = noise_ratio
         self.T = transition_matrix(self.num_classes, noise_type, noise_ratio)
 
-    def setup_unproved(self, Dᵤ, rng):
-        noisy_targets = random_noisify(Dᵤ.targets, self.T, rng)
-        Dᵤ.targets = list(zip(noisy_targets, Dᵤ.targets))
+    def setup_unproved(self, U, random_state):
+        noisy_targets = random_noisify(U.targets, self.T, random_state)
+        U.targets = list(zip(noisy_targets, U.targets))
 
 
 class NoisyCIFAR10(NoisyCIFAR):

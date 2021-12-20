@@ -49,6 +49,11 @@ class IndexedDataset(Dataset):
         return index, self.dataset[index]
 
 
+def make_subaset(dataset, indices):
+    dataset.data = dataset.data[indices]
+    dataset.targets = numpy.array(dataset.targets)[indices]
+
+
 class DeficientCIFAR(LightningDataModule):
 
     def __init__(
@@ -57,6 +62,7 @@ class DeficientCIFAR(LightningDataModule):
         batch_sizes: dict[str, int] = {},
         random_seed: Optional[int] = 1234,
         show_sample_indices: bool = False,
+        validation_set_size: int = 0,
     ):
         super().__init__()
         if self.num_classes == 10:
@@ -68,11 +74,17 @@ class DeficientCIFAR(LightningDataModule):
 
         self.root = root
         self.num_proved = num_proved
-        self.num_samples = dict(zip(self.splits, [num_proved, 50000, 10000]))
+        self.num_samples = {
+            self.splits[0]: num_proved,
+            self.splits[1]: 50000 - validation_set_size,
+            'val': validation_set_size or 10000,
+            'test': 10000,
+        }
         self.transforms = defaultdict(lambda: ToTensor(), transforms)
         self.batch_sizes = defaultdict(lambda: 1, batch_sizes)
         self.random_seed = random_seed
         self.show_sample_indices = show_sample_indices
+        self.validation_set_size = validation_set_size
 
         assert all(k in self.splits for k in transforms), "key error"
         assert all(k in self.splits for k in batch_sizes), "key error"
@@ -85,8 +97,13 @@ class DeficientCIFAR(LightningDataModule):
 
         P = self.CIFAR(self.root, transform=self.transforms[self.splits[0]])
         U = self.CIFAR(self.root, transform=self.transforms[self.splits[1]])
-        V = self.CIFAR(self.root, train=False,
-                       transform=self.transforms[self.splits[2]])
+        V = self.CIFAR(self.root, train=(self.validation_set_size != 0), transform=self.transforms['val'])
+        T = self.CIFAR(self.root, train=False, transform=self.transforms['val'])
+
+        if self.validation_set_size != 0:
+            indices = self.setup_val(V, random_state)
+            self.setup_train(P, indices, random_state)
+            self.setup_train(U, indices, random_state)
 
         self.setup_proved(P, random_state)
         self.setup_unproved(U, random_state)
@@ -102,12 +119,26 @@ class DeficientCIFAR(LightningDataModule):
         if self.show_sample_indices:
             U = IndexedDataset(U)
 
-        self.datasets = dict(zip(self.splits, [P, U, V]))
+        self.datasets = {
+            self.splits[0]: P,
+            self.splits[1]: U,
+            'val': V,
+            'test': T,
+        }
+
+    def setup_val(self, V, random_state):
+        indices = random_select(V.targets, self.validation_set_size, random_state)
+        make_subaset(V, indices)
+        return indices
+
+    def setup_train(self, trainset, val_indices, random_state):
+        val_indices = set(val_indices)
+        indices = [x for x in range(50000) if x not in val_indices]
+        make_subaset(trainset, indices)
 
     def setup_proved(self, P, random_state):
         indices = random_select(P.targets, self.num_proved, random_state)
-        P.data = P.data[indices]
-        P.targets = numpy.array(P.targets)[indices]
+        make_subaset(P, indices)
 
     def setup_unproved(self, U, random_state):
         pass
@@ -134,7 +165,7 @@ class DeficientCIFAR(LightningDataModule):
             return self.dataloader(self.splits[1])
 
     def val_dataloader(self):
-        return self.dataloader(self.splits[2], shuffle=False)
+        return self.dataloader('val', shuffle=False)
 
     def test_dataloader(self):
-        return self.val_dataloader()
+        return self.dataloader('test', shuffle=False)

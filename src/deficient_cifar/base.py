@@ -63,6 +63,7 @@ class DeficientCIFAR(LightningDataModule):
         random_seed: Optional[int] = 1234,
         show_sample_indices: bool = False,
         validation_set_size: int = 0,
+        exclude_proved_from_unproved: bool = False,
     ):
         super().__init__()
         if self.num_classes == 10:
@@ -85,6 +86,7 @@ class DeficientCIFAR(LightningDataModule):
         self.random_seed = random_seed
         self.show_sample_indices = show_sample_indices
         self.validation_set_size = validation_set_size
+        self.exclude_proved_from_unproved = exclude_proved_from_unproved
 
         assert all(k in self.splits for k in transforms), "key error"
         assert all(k in self.splits for k in batch_sizes), "key error"
@@ -105,8 +107,8 @@ class DeficientCIFAR(LightningDataModule):
             self.setup_train(P, indices, random_state)
             self.setup_train(U, indices, random_state)
 
-        self.setup_proved(P, random_state)
-        self.setup_unproved(U, random_state)
+        indices = self.setup_proved(P, random_state)
+        self.setup_unproved(U, indices, random_state)
 
         try:
             m = math.ceil((len(U) * self.batch_sizes[self.splits[0]]) /
@@ -133,15 +135,19 @@ class DeficientCIFAR(LightningDataModule):
 
     def setup_train(self, trainset, val_indices, random_state):
         val_indices = set(val_indices)
-        indices = [x for x in range(50000) if x not in val_indices]
+        indices = [x for x in range(len(trainset)) if x not in val_indices]
         make_subaset(trainset, indices)
 
     def setup_proved(self, P, random_state):
         indices = random_select(P.targets, self.num_proved, random_state)
         make_subaset(P, indices)
+        return indices
 
-    def setup_unproved(self, U, random_state):
-        pass
+    def setup_unproved(self, U, proved_indices, random_state):
+        if self.exclude_proved_from_unproved:
+            proved_indices = set(proved_indices)
+            indices = [x for x in range(len(U)) if x not in proved_indices]
+            make_subaset(U, indices)
 
     def dataloader(
         self, k: str,

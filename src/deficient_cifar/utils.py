@@ -28,9 +28,7 @@ def random_noisify(y, T, random_state):
 
 
 def uniform_transition(size, noise_ratio):
-    P = noise_ratio / (size - 1) * np.ones((size, size))
-    np.fill_diagonal(P, 1 - noise_ratio)
-    return P
+    return (1 - noise_ratio) * np.eye(size) + noise_ratio / size
 
 
 def cifar10_transition(noise_ratio):

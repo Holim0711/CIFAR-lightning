@@ -45,18 +45,15 @@ class TestDataModules(unittest.TestCase):
 
         self.assertTrue(len(dl[s[1]]) <= len(dl[s[0]]) * 2)
 
-        for x, y in dl[s[0]]:
-            break
+        x, y = next(iter(dl[s[0]]))
         self.assertEqual(x.shape, (64, 32, 32))
         self.assertEqual(y.shape, (64,))
 
-        for x, y in dl[s[1]]:
-            break
+        x, y = next(iter(dl[s[1]]))
         self.assertEqual(x.shape, (448, 2, 32, 32))
         self.assertEqual(y.shape, (448,))
 
-        for x, y in dm.val_dataloader():
-            break
+        x, y = next(iter(dm.val_dataloader()))
         self.assertEqual(x.shape, (1, 3, 32, 32))
         self.assertEqual(y.shape, (1,))
 

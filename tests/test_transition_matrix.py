@@ -29,8 +29,10 @@ class TestTransitionMatrix(unittest.TestCase):
         dm.prepare_data()
         dm.setup()
 
+        original_targets = dm.CIFAR(path).targets
+
         T = np.zeros((dm.num_classes, dm.num_classes), dtype=int)
-        for _, (y1, y2) in dm.datasets[dm.splits[1]]:
+        for (_, y1), y2 in zip(dm.datasets[dm.splits[1]], original_targets):
             T[y2][y1] += 1
         T = T / T.sum(axis=1, keepdims=True)
 

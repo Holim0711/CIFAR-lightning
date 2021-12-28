@@ -36,10 +36,6 @@ class TestDataModules(unittest.TestCase):
         dm.prepare_data()
         dm.setup()
 
-        self.assertEqual(dm.n[s[0]], n)
-        self.assertEqual(dm.n[s[1]], 50000)
-        self.assertEqual(dm.n[s[2]], 10000)
-
         for x in dm.datasets[s[0]].datasets:
             self.assertEqual(len(x), n)
         self.assertEqual(len(dm.datasets[s[1]]), 50000)
@@ -54,19 +50,10 @@ class TestDataModules(unittest.TestCase):
         self.assertEqual(x.shape, (64, 32, 32))
         self.assertEqual(y.shape, (64,))
 
-        if s[1] == 'unlabeled':
-            for x, y in dl[s[1]]:
-                break
-            self.assertEqual(x.shape, (448, 2, 32, 32))
-            self.assertEqual(y.shape, (448,))
-        elif s[1] == 'noisy':
-            for x, (y1, y2) in dl[s[1]]:
-                break
-            self.assertEqual(x.shape, (448, 2, 32, 32))
-            self.assertEqual(y1.shape, (448,))
-            self.assertEqual(y2.shape, (448,))
-        else:
-            raise ValueError(f'Unknown split name: {s[1]}')
+        for x, y in dl[s[1]]:
+            break
+        self.assertEqual(x.shape, (448, 2, 32, 32))
+        self.assertEqual(y.shape, (448,))
 
         for x, y in dm.val_dataloader():
             break

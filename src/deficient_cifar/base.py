@@ -1,6 +1,6 @@
 import os
 import warnings
-import math
+from math import ceil
 import numpy
 from typing import Callable, Optional
 from pytorch_lightning import LightningDataModule
@@ -97,12 +97,11 @@ class DeficientCIFAR(LightningDataModule):
         self.setup_unproved(U, random_state)
 
         try:
-            m = math.ceil((len(U) * self.batch_sizes[self.splits[0]]) /
-                          (len(P) * self.batch_sizes[self.splits[1]] * 2))
+            m = (len(U) * self.batch_sizes[self.splits[0]]) / (len(P) * self.batch_sizes[self.splits[1]] * 2)
         except ZeroDivisionError:
             m = 1
 
-        P = ConcatDataset([P] * m)
+        P = ConcatDataset([P] * max(ceil(m), 1))
 
         if self.enum_unproved:
             U = IndexedDataset(U)

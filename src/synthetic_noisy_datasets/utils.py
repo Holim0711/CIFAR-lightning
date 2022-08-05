@@ -31,6 +31,16 @@ def uniform_transition(size, noise_ratio):
     return (1 - noise_ratio) * np.eye(size) + noise_ratio / size
 
 
+def mnist_transition(noise_ratio):
+    P = np.eye(10)
+    P[2, 2], P[2, 7] = 1 - noise_ratio, noise_ratio
+    P[3, 3], P[3, 8] = 1 - noise_ratio, noise_ratio
+    P[5, 5], P[5, 6] = 1 - noise_ratio, noise_ratio
+    P[6, 6], P[6, 5] = 1 - noise_ratio, noise_ratio
+    P[7, 7], P[7, 1] = 1 - noise_ratio, noise_ratio
+    return P
+
+
 def cifar10_transition(noise_ratio):
     P = np.eye(10)
     P[9, 9], P[9, 1] = 1 - noise_ratio, noise_ratio    # truck → automobile
@@ -51,11 +61,25 @@ def cifar100_transition(noise_ratio):
     return P
 
 
-def transition_matrix(num_classes, noise_type, noise_ratio):
+def transition_matrix(dataset, noise_type, noise_ratio):
+    num_classes = {
+        'MNIST': 10,
+        'CIFAR10': 10,
+        'CIFAR100': 100,
+    }[dataset]
+
     if noise_type == 'symmetric':
         return uniform_transition(num_classes, noise_ratio)
+
     if noise_type == 'asymmetric':
-        if num_classes == 10:
+        if dataset == 'MNIST':
+            return mnist_transition(noise_ratio)
+        if dataset == 'CIFAR10':
             return cifar10_transition(noise_ratio)
-        if num_classes == 100:
+        if dataset == 'CIFAR100':
             return cifar100_transition(noise_ratio)
+
+    raise ValueError((
+        "Unknown dataset configuration: "
+        f"{dataset}, {noise_type}, {noise_ratio}"
+    ))

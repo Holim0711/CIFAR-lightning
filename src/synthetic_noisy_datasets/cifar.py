@@ -92,7 +92,8 @@ class NoisyCIFAR(LightningDataModule):
             if k not in self.splits:
                 warnings.warn(f"'{k}' in batch_sizes is ignored")
 
-        self.T = transition_matrix(self.num_classes, noise_type, noise_ratio)
+        self.T = transition_matrix(f'CIFAR{self.num_classes}',
+                                   noise_type, noise_ratio)
 
     def prepare_data(self):
         self.CIFAR(self.root, download=True)

@@ -1,7 +1,7 @@
 import os
 import warnings
 from math import ceil
-import numpy
+from numpy.random import RandomState
 from typing import Callable, Optional
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import Dataset, Subset, ConcatDataset, DataLoader
@@ -66,8 +66,8 @@ class NoisyCIFAR(LightningDataModule):
         transforms: dict[str, Callable] = {},
         batch_sizes: dict[str, int] = {},
         random_seed: Optional[int] = 0,
-        enum_unlabeled: bool = False,
-        pure_unlabeled: bool = False,
+        enum_noisy: bool = False,
+        pure_noisy: bool = False,
         keep_original: bool = False,
     ):
         super().__init__()
@@ -81,8 +81,8 @@ class NoisyCIFAR(LightningDataModule):
         self.transforms = [transforms.get(k, ToTensor()) for k in self.splits]
         self.batch_sizes = {k: batch_sizes.get(k, 1) for k in self.splits}
         self.random_seed = random_seed
-        self.enum_unlabeled = enum_unlabeled
-        self.pure_unlabeled = pure_unlabeled
+        self.enum_noisy = enum_noisy
+        self.pure_noisy = pure_noisy
         self.keep_original = keep_original
 
         for k in transforms:
@@ -99,16 +99,16 @@ class NoisyCIFAR(LightningDataModule):
         self.CIFAR(self.root, download=True)
 
     def setup(self, stage=None):
-        random_state = numpy.random.RandomState(self.random_seed)
-
         P = self.CIFAR(self.root, transform=self.transforms[0])
         U = self.CIFAR(self.root, transform=self.transforms[1])
         V = self.CIFAR(self.root, train=False, transform=self.transforms[2])
 
+        random_state = RandomState(self.random_seed)
         indices = random_select(P.targets, self.num_clean, random_state)
         P = Subset(P, indices)
 
-        self.setup_unlabeled(U, random_state)
+        random_state = RandomState(self.random_seed)
+        U.targets = random_noisify(U.targets, self.T, random_state)
 
         try:
             m = ((len(U) * self.batch_sizes[self.splits[0]]) /
@@ -118,22 +118,15 @@ class NoisyCIFAR(LightningDataModule):
 
         P = ConcatDataset([P] * max(ceil(m), 1))
 
-        if self.enum_unlabeled:
+        if self.enum_noisy:
             U = IndexedDataset(U)
 
-        if self.pure_unlabeled:
+        if self.pure_noisy:
             indices = set(indices)
             indices = [x for x in range(len(U)) if x not in indices]
             U = Subset(U, indices)
 
         self.datasets = dict(zip(self.splits, [P, U, V]))
-
-    def setup_unlabeled(self, U, random_state):
-        noisy_targets = random_noisify(U.targets, self.T, random_state)
-        if self.keep_original:
-            U.targets = list(zip(noisy_targets, U.targets))
-        else:
-            U.targets = noisy_targets
 
     def dataloader(
         self, k: str,

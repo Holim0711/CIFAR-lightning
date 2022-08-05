@@ -52,12 +52,15 @@ def cifar10_transition(noise_ratio):
 
 
 def cifar100_transition(noise_ratio):
-    # flip within the same superclass ({0..4}, ..., {95..99})
-    P = (1 - noise_ratio) * np.eye(100)
-    for i in range(20):
-        for j in range(4):
-            P[5 * i + j, 5 * i + j + 1] = noise_ratio
-        P[5 * i + 4, 5 * i] = noise_ratio
+    P = np.zeros((100, 100))
+    Q = np.eye(5)
+    Q[0, 0], Q[0, 1] = 1 - noise_ratio, noise_ratio
+    Q[1, 1], Q[1, 2] = 1 - noise_ratio, noise_ratio
+    Q[2, 2], Q[2, 3] = 1 - noise_ratio, noise_ratio
+    Q[3, 3], Q[3, 4] = 1 - noise_ratio, noise_ratio
+    Q[4, 4], Q[4, 0] = 1 - noise_ratio, noise_ratio
+    for i in range(0, 100, 5):
+        P[i:i+5, i:i+5] = Q
     return P
 
 

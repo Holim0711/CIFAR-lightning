@@ -47,7 +47,7 @@ def cifar10_transition(noise_ratio):
     P[2, 2], P[2, 0] = 1 - noise_ratio, noise_ratio    # bird → airplane
     P[3, 3], P[3, 5] = 1 - noise_ratio, noise_ratio    # cat → dog
     P[5, 5], P[5, 3] = 1 - noise_ratio, noise_ratio    # dog → cat
-    P[4, 4], P[4, 7] = 1 - noise_ratio, noise_ratio    # deer -> horse
+    P[4, 4], P[4, 7] = 1 - noise_ratio, noise_ratio    # deer → horse
     return P
 
 

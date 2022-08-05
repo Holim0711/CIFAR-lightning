@@ -2,7 +2,7 @@ import os
 import unittest
 import tempfile
 import numpy as np
-from deficient_cifar import NoisyCIFAR10, NoisyCIFAR100
+from synthetic_noisy_datasets import NoisyCIFAR10, NoisyCIFAR100
 
 
 class TestTransitionMatrix(unittest.TestCase):

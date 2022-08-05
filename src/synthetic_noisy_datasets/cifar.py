@@ -7,7 +7,7 @@ from pytorch_lightning import LightningDataModule
 from torch.utils.data import Dataset, Subset, ConcatDataset, DataLoader
 from torchvision.transforms import ToTensor
 from torchvision.datasets import CIFAR10, CIFAR100
-from .utils import random_select
+from .utils import *
 
 CIFAR = {10: CIFAR10, 100: CIFAR100}
 
@@ -52,27 +52,38 @@ class IndexedDataset(Dataset):
         return index, self.dataset[index]
 
 
-class DeficientCIFAR(LightningDataModule):
+class NoisyCIFAR(LightningDataModule):
+
+    splits = ['clean', 'noisy', 'val']
+    num_classes = None
 
     def __init__(
-        self, root: str, num_proved: int,
+        self,
+        root: str,
+        num_clean: int,
+        noise_type: str = 'symmetric',
+        noise_ratio: float = 0.0,
         transforms: dict[str, Callable] = {},
         batch_sizes: dict[str, int] = {},
         random_seed: Optional[int] = 0,
-        enum_unproved: bool = False,
-        pure_unproved: bool = False,
+        enum_unlabeled: bool = False,
+        pure_unlabeled: bool = False,
+        keep_original: bool = False,
     ):
         super().__init__()
         self.CIFAR = CIFAR[self.num_classes]
         self.classes = CLASSES[self.num_classes]
 
         self.root = root
-        self.num_proved = num_proved
+        self.num_clean = num_clean
+        self.noise_type = noise_type
+        self.noise_ratio = noise_ratio
         self.transforms = [transforms.get(k, ToTensor()) for k in self.splits]
         self.batch_sizes = {k: batch_sizes.get(k, 1) for k in self.splits}
         self.random_seed = random_seed
-        self.enum_unproved = enum_unproved
-        self.pure_unproved = pure_unproved
+        self.enum_unlabeled = enum_unlabeled
+        self.pure_unlabeled = pure_unlabeled
+        self.keep_original = keep_original
 
         for k in transforms:
             if k not in self.splits:
@@ -80,6 +91,8 @@ class DeficientCIFAR(LightningDataModule):
         for k in batch_sizes:
             if k not in self.splits:
                 warnings.warn(f"'{k}' in batch_sizes is ignored")
+
+        self.T = transition_matrix(self.num_classes, noise_type, noise_ratio)
 
     def prepare_data(self):
         self.CIFAR(self.root, download=True)
@@ -91,30 +104,35 @@ class DeficientCIFAR(LightningDataModule):
         U = self.CIFAR(self.root, transform=self.transforms[1])
         V = self.CIFAR(self.root, train=False, transform=self.transforms[2])
 
-        indices = random_select(P.targets, self.num_proved, random_state)
+        indices = random_select(P.targets, self.num_clean, random_state)
         P = Subset(P, indices)
 
-        self.setup_unproved(U, random_state)
+        self.setup_unlabeled(U, random_state)
 
         try:
-            m = (len(U) * self.batch_sizes[self.splits[0]]) / (len(P) * self.batch_sizes[self.splits[1]] * 2)
+            m = ((len(U) * self.batch_sizes[self.splits[0]]) /
+                 (len(P) * self.batch_sizes[self.splits[1]] * 2))
         except ZeroDivisionError:
             m = 1
 
         P = ConcatDataset([P] * max(ceil(m), 1))
 
-        if self.enum_unproved:
+        if self.enum_unlabeled:
             U = IndexedDataset(U)
 
-        if self.pure_unproved:
+        if self.pure_unlabeled:
             indices = set(indices)
             indices = [x for x in range(len(U)) if x not in indices]
             U = Subset(U, indices)
 
         self.datasets = dict(zip(self.splits, [P, U, V]))
 
-    def setup_unproved(self, U, random_state):
-        pass
+    def setup_unlabeled(self, U, random_state):
+        noisy_targets = random_noisify(U.targets, self.T, random_state)
+        if self.keep_original:
+            U.targets = list(zip(noisy_targets, U.targets))
+        else:
+            U.targets = noisy_targets
 
     def dataloader(
         self, k: str,
@@ -131,7 +149,7 @@ class DeficientCIFAR(LightningDataModule):
         )
 
     def train_dataloader(self):
-        if self.num_proved and self.batch_sizes[self.splits[0]]:
+        if self.num_clean and self.batch_sizes[self.splits[0]]:
             return {self.splits[0]: self.dataloader(self.splits[0]),
                     self.splits[1]: self.dataloader(self.splits[1])}
         else:
@@ -142,3 +160,11 @@ class DeficientCIFAR(LightningDataModule):
 
     def test_dataloader(self):
         return self.val_dataloader()
+
+
+class NoisyCIFAR10(NoisyCIFAR):
+    num_classes = 10
+
+
+class NoisyCIFAR100(NoisyCIFAR):
+    num_classes = 100

@@ -1,7 +1,7 @@
 import os
 import unittest
 import tempfile
-from deficient_cifar import *
+from synthetic_noisy_datasets import *
 from torchvision.transforms import Compose, ToTensor, Lambda
 
 
@@ -73,23 +73,6 @@ class TestDataModules(unittest.TestCase):
         self.routine(NoisyCIFAR100, 400)
         self.routine(NoisyCIFAR100, 2500)
         self.routine(NoisyCIFAR100, 10000)
-
-    def test_semi_cifar_10(self):
-        self.assertEqual(SemiCIFAR10.splits[0], 'labeled')
-        self.assertEqual(SemiCIFAR10.splits[1], 'unlabeled')
-        self.assertEqual(SemiCIFAR10.splits[2], 'val')
-        self.routine(SemiCIFAR10, 40)
-        self.routine(SemiCIFAR10, 250)
-        self.routine(SemiCIFAR10, 1000)
-        self.routine(SemiCIFAR10, 4000)
-
-    def test_semi_cifar_100(self):
-        self.assertEqual(SemiCIFAR100.splits[0], 'labeled')
-        self.assertEqual(SemiCIFAR100.splits[1], 'unlabeled')
-        self.assertEqual(SemiCIFAR100.splits[2], 'val')
-        self.routine(SemiCIFAR100, 400)
-        self.routine(SemiCIFAR100, 2500)
-        self.routine(SemiCIFAR100, 10000)
 
 
 if __name__ == '__main__':

@@ -1,8 +1,8 @@
 import os
 import warnings
 from math import ceil
-from numpy.random import RandomState
 from typing import Callable, Optional
+import numpy as np
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import Dataset, Subset, ConcatDataset, DataLoader
 from torchvision.transforms import ToTensor
@@ -95,20 +95,27 @@ class NoisyCIFAR(LightningDataModule):
         self.T = transition_matrix(f'CIFAR{self.num_classes}',
                                    noise_type, noise_ratio)
 
+    @property
+    def noisy_targets_path(self):
+        return os.path.join(self.root, f'noisy-{self.random_seed}') + '.npy'
+
     def prepare_data(self):
-        self.CIFAR(self.root, download=True)
+        D = self.CIFAR(self.root, download=True)
+        if not os.path.isfile(self.noisy_targets_path):
+            random_state = np.random.RandomState(self.random_seed)
+            noisy_targets = random_noisify(D.targets, self.T, random_state)
+            np.save(self.noisy_targets_path, noisy_targets)
 
     def setup(self, stage=None):
         P = self.CIFAR(self.root, transform=self.transforms[0])
         U = self.CIFAR(self.root, transform=self.transforms[1])
         V = self.CIFAR(self.root, train=False, transform=self.transforms[2])
 
-        random_state = RandomState(self.random_seed)
+        random_state = np.random.RandomState(self.random_seed)
         indices = random_select(P.targets, self.num_clean, random_state)
         P = Subset(P, indices)
 
-        random_state = RandomState(self.random_seed)
-        U.targets = random_noisify(U.targets, self.T, random_state)
+        U.targets = np.load(self.noisy_targets_path)
 
         try:
             m = ((len(U) * self.batch_sizes[self.splits[0]]) /

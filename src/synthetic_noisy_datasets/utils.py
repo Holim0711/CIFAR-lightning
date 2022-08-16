@@ -7,11 +7,12 @@ __all__ = [
 ]
 
 
-def random_select(y, N, random_state):
+def random_select(y, N, seed=None):
     """ Select a total of 'N' indices equally for each class """
     y = np.array(y)
     C = np.unique(y)
     n = N // len(C)
+    random_state = np.random.RandomState(seed)
 
     random_I = []
     for c in C:
@@ -21,8 +22,9 @@ def random_select(y, N, random_state):
     return random_I
 
 
-def random_noisify(y, T, random_state):
+def random_noisify(y, T, seed=None):
     """ Noisify according to the transition matrix 'T' """
+    random_state = np.random.RandomState(seed)
     z = random_state.random((len(y), 1))
     return (T[y].cumsum(axis=1) > z).argmax(axis=1)
 

@@ -12,7 +12,6 @@ class NoisyMNIST(MNIST):
     def __init__(
         self,
         root: str,
-        train: bool = True,
         noise_type: str = 'symmetric',
         noise_ratio: float = 0.0,
         random_seed: int = 0,
@@ -22,7 +21,7 @@ class NoisyMNIST(MNIST):
     ):
         super().__init__(
             root,
-            train=train,
+            train=True,
             transform=transform,
             target_transform=target_transform,
             download=download
@@ -53,7 +52,6 @@ class NoisyCIFAR10(CIFAR10):
     def __init__(
         self,
         root: str,
-        train: bool = True,
         noise_type: str = 'symmetric',
         noise_ratio: float = 0.0,
         random_seed: int = 0,
@@ -63,7 +61,7 @@ class NoisyCIFAR10(CIFAR10):
     ):
         super().__init__(
             root,
-            train=train,
+            train=True,
             transform=transform,
             target_transform=target_transform,
             download=download
@@ -86,7 +84,6 @@ class NoisyCIFAR100(CIFAR100):
     def __init__(
         self,
         root: str,
-        train: bool = True,
         noise_type: str = 'symmetric',
         noise_ratio: float = 0.0,
         random_seed: int = 0,
@@ -96,7 +93,7 @@ class NoisyCIFAR100(CIFAR100):
     ):
         super().__init__(
             root,
-            train=train,
+            train=True,
             transform=transform,
             target_transform=target_transform,
             download=download

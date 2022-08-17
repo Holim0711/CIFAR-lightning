@@ -2,7 +2,7 @@ import os
 import unittest
 import tempfile
 from synthetic_noisy_datasets.datamodules import *
-from torchvision.transforms import Compose, ToTensor, Lambda
+from torchvision.transforms import Compose, Resize, ToTensor, Lambda
 
 
 class TestDataModules(unittest.TestCase):
@@ -18,50 +18,58 @@ class TestDataModules(unittest.TestCase):
     def setUp(self):
         pass
 
-    def routine(self, Class, n):
-        dm = Class(
-            os.path.join(self.root, f'CIFAR{Class.num_classes}'),
-            n,
-            batch_sizes={'clean': 64, 'noisy': 448},
+    def routine(self, cls, path, num_clean):
+        dm = cls(
+            os.path.join(self.root, path),
+            num_clean=num_clean,
+            batch_sizes={
+                'clean': 64,
+                'noisy': 448,
+                'val': 512,
+            },
             transforms={
-                'clean': Compose([ToTensor(), Lambda(lambda x: x[0])]),
-                'noisy': Compose([ToTensor(), Lambda(lambda x: x[:2])]),
-            }
+                'clean': Compose([Resize(32), ToTensor()]),
+                'noisy': Compose([Resize(28), ToTensor()]),
+                'val': Compose([Resize(64), ToTensor()]),
+            },
+            expand_clean=True,
+            enumerate_noisy=True,
         )
         dm.prepare_data()
         dm.setup()
 
-        for x in dm.datasets['clean'].datasets:
-            self.assertEqual(len(x), n)
-        self.assertEqual(len(dm.datasets['noisy']), 50000)
-        self.assertEqual(len(dm.datasets['val']), 10000)
+        train = dm.train_dataloader()
+        val = dm.val_dataloader()
 
-        dl = dm.train_dataloader()
+        self.assertTrue(len(train['noisy']) <= len(train['clean']) * 2)
 
-        self.assertTrue(len(dl['noisy']) <= len(dl['clean']) * 2)
-
-        x, y = next(iter(dl['clean']))
-        self.assertEqual(x.shape, (64, 32, 32))
+        x, y = next(iter(train['clean']))
+        self.assertEqual(x.shape[-2:], (32, 32))
         self.assertEqual(y.shape, (64,))
 
-        x, y = next(iter(dl['noisy']))
-        self.assertEqual(x.shape, (448, 2, 32, 32))
+        i, (x, y) = next(iter(train['noisy']))
+        self.assertEqual(x.shape[-2:], (28, 28))
         self.assertEqual(y.shape, (448,))
+        self.assertEqual(i.shape, (448,))
 
-        x, y = next(iter(dm.val_dataloader()))
-        self.assertEqual(x.shape, (1, 3, 32, 32))
-        self.assertEqual(y.shape, (1,))
+        x, y = next(iter(val))
+        self.assertEqual(x.shape[-2:], (64, 64))
+        self.assertEqual(y.shape, (512,))
 
-    def test_noisy_cifar_10(self):
-        self.routine(NoisyCIFAR10, 40)
-        self.routine(NoisyCIFAR10, 250)
-        self.routine(NoisyCIFAR10, 1000)
-        self.routine(NoisyCIFAR10, 4000)
+    def test_NoisyMNIST(self):
+        self.routine(NoisyMNIST, 'MNIST', 40)
+        self.routine(NoisyMNIST, 'MNIST', 100)
+        self.routine(NoisyMNIST, 'MNIST', 250)
 
-    def test_noisy_cifar_100(self):
-        self.routine(NoisyCIFAR100, 400)
-        self.routine(NoisyCIFAR100, 2500)
-        self.routine(NoisyCIFAR100, 10000)
+    def test_NoisyCIFAR10(self):
+        self.routine(NoisyCIFAR10, 'CIFAR10', 40)
+        self.routine(NoisyCIFAR10, 'CIFAR10', 100)
+        self.routine(NoisyCIFAR10, 'CIFAR10', 250)
+
+    def test_NoisyCIFAR100(self):
+        self.routine(NoisyCIFAR100, 'CIFAR100', 400)
+        self.routine(NoisyCIFAR100, 'CIFAR100', 1000)
+        self.routine(NoisyCIFAR100, 'CIFAR100', 2500)
 
 
 if __name__ == '__main__':

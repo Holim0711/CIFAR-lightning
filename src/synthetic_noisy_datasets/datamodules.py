@@ -60,7 +60,7 @@ class NoisyDataModule(LightningDataModule):
         self.random_seed = random_seed
 
         splits = ['clean', 'noisy', 'val']
-        self.transforms = [transforms.get(k, ToTensor()) for k in splits]
+        self.transforms = {k: transforms.get(k, ToTensor()) for k in splits}
         self.batch_sizes = {k: batch_sizes.get(k, 1) for k in splits}
 
         for k in transforms:
@@ -80,9 +80,11 @@ class NoisyDataModule(LightningDataModule):
         return self.num_clean > 0 and self.batch_sizes['clean'] > 0
 
     def prepare_data(self):
-        self.NOISY(
-            self.root, self.noise_type, self.noise_ratio, self.random_seed,
-            download=True)
+        self.NOISY(self.root,
+                   noise_type=self.noise_type,
+                   noise_ratio=self.noise_ratio,
+                   random_seed=self.random_seed,
+                   download=True)
 
     def get_dataset(self, split: str, transform: Optional[Callable] = None):
         if transform is None:
@@ -90,13 +92,15 @@ class NoisyDataModule(LightningDataModule):
 
         if split == 'clean':
             dataset = self.CLEAN(self.root, transform=transform)
-            indices = random_select(
-                dataset.targets, self.num_clean, self.random_seed)
+            indices = random_select(dataset.targets,
+                                    self.num_clean, self.random_seed)
             return Subset(dataset, indices)
         elif split == 'noisy':
-            return self.NOISY(
-                self.root, self.noise_type, self.noise_ratio, self.random_seed,
-                transform=transform)
+            return self.NOISY(self.root,
+                              noise_type=self.noise_type,
+                              noise_ratio=self.noise_ratio,
+                              random_seed=self.random_seed,
+                              transform=transform)
         elif split == 'val':
             return self.CLEAN(self.root, train=False, transform=transform)
 

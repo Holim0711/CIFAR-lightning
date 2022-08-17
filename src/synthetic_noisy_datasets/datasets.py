@@ -43,6 +43,14 @@ class NoisyMNIST(MNIST):
         self.T = transition_matrix('MNIST', noise_type, noise_ratio)
         self.targets = load_or_save_Ỹ(root, random_seed, self.targets, self.T)
 
+    @property
+    def raw_folder(self) -> str:
+        return os.path.join(self.root, 'MNIST', "raw")
+
+    @property
+    def processed_folder(self) -> str:
+        return os.path.join(self.root, 'MNIST', "processed")
+
 
 class NoisyCIFAR10(CIFAR10):
     def __init__(

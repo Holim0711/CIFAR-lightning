@@ -8,16 +8,6 @@ from .utils import random_noisify, transition_matrix
 __all__ = ['NoisyMNIST', 'NoisyCIFAR10', 'NoisyCIFAR100']
 
 
-def load_or_save_Ỹ(root, seed, Y, T):
-    path = os.path.join(root, f'noisy-{seed}') + '.npy'
-    if os.path.isfile(path):
-        Ỹ = np.load(path)
-    else:
-        Ỹ = random_noisify(Y, T, seed)
-        np.save(path, Ỹ)
-    return Ỹ
-
-
 class NoisyMNIST(MNIST):
     def __init__(
         self,
@@ -41,7 +31,14 @@ class NoisyMNIST(MNIST):
         self.noise_ratio = noise_ratio
         self.random_seed = random_seed
         self.T = transition_matrix('MNIST', noise_type, noise_ratio)
-        self.targets = load_or_save_Ỹ(root, random_seed, self.targets, self.T)
+
+        filename = f'noisy-{noise_type}-{noise_ratio}-{random_seed}.npy'
+        path = os.path.join(root, filename)
+        if os.path.isfile(path):
+            self.targets = np.load(path)
+        else:
+            self.targets = random_noisify(self.targets, self.T, random_seed)
+            np.save(path, self.targets)
 
     @property
     def raw_folder(self) -> str:
@@ -75,7 +72,14 @@ class NoisyCIFAR10(CIFAR10):
         self.noise_ratio = noise_ratio
         self.random_seed = random_seed
         self.T = transition_matrix('CIFAR10', noise_type, noise_ratio)
-        self.targets = load_or_save_Ỹ(root, random_seed, self.targets, self.T)
+
+        filename = f'noisy-{noise_type}-{noise_ratio}-{random_seed}.npy'
+        path = os.path.join(root, filename)
+        if os.path.isfile(path):
+            self.targets = np.load(path)
+        else:
+            self.targets = random_noisify(self.targets, self.T, random_seed)
+            np.save(path, self.targets)
 
 
 class NoisyCIFAR100(CIFAR100):
@@ -101,4 +105,11 @@ class NoisyCIFAR100(CIFAR100):
         self.noise_ratio = noise_ratio
         self.random_seed = random_seed
         self.T = transition_matrix('CIFAR100', noise_type, noise_ratio)
-        self.targets = load_or_save_Ỹ(root, random_seed, self.targets, self.T)
+
+        filename = f'noisy-{noise_type}-{noise_ratio}-{random_seed}.npy'
+        path = os.path.join(root, filename)
+        if os.path.isfile(path):
+            self.targets = np.load(path)
+        else:
+            self.targets = random_noisify(self.targets, self.T, random_seed)
+            np.save(path, self.targets)

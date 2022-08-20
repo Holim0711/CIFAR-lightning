@@ -5,22 +5,16 @@ from typing import Callable, Optional
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import Dataset, Subset, ConcatDataset, DataLoader
 from torchvision.transforms import ToTensor
-from torchvision.datasets import (
-    MNIST as C_MNIST,
-    CIFAR10 as C_CIFAR10,
-    CIFAR100 as C_CIFAR100,
-)
+from torchvision.datasets import MNIST, CIFAR10, CIFAR100
 from .datasets import (
-    NoisyMNIST as N_MNIST,
-    NoisyCIFAR10 as N_CIFAR10,
-    NoisyCIFAR100 as N_CIFAR100,
+    NoisyMNIST as DatasetNoisyMNIST,
+    NoisyCIFAR10 as DatasetNoisyCIFAR10,
+    NoisyCIFAR100 as DatasetNoisyCIFAR100,
 )
 from .utils import random_select, transition_matrix
 
 
 __all__ = ['NoisyMNIST', 'NoisyCIFAR10', 'NoisyCIFAR100']
-C_CLASS = {'MNIST': C_MNIST, 'CIFAR10': C_CIFAR10, 'CIFAR100': C_CIFAR100}
-N_CLASS = {'MNIST': N_MNIST, 'CIFAR10': N_CIFAR10, 'CIFAR100': N_CIFAR100}
 
 
 class IndexedDataset(Dataset):
@@ -36,9 +30,11 @@ class IndexedDataset(Dataset):
 
 class NoisyDataModule(LightningDataModule):
 
+    CLEAN = None
+    NOISY = None
+
     def __init__(
         self,
-        name: str,
         root: str,
         num_clean: int = 0,
         noise_type: str = 'symmetric',
@@ -50,9 +46,6 @@ class NoisyDataModule(LightningDataModule):
         enumerate_noisy: bool = False,
     ):
         super().__init__()
-        self.CLEAN = C_CLASS[name]
-        self.NOISY = N_CLASS[name]
-
         self.root = root
         self.num_clean = num_clean
         self.noise_type = noise_type
@@ -70,7 +63,8 @@ class NoisyDataModule(LightningDataModule):
             if k not in splits:
                 warnings.warn(f"'{k}' in batch_sizes is ignored")
 
-        self.T = transition_matrix(name, noise_type, noise_ratio)
+        dataset = self.CLEAN.__name__
+        self.T = transition_matrix(dataset, noise_type, noise_ratio)
 
         self.expand_clean = expand_clean and self.with_clean
         self.enumerate_noisy = enumerate_noisy
@@ -87,14 +81,10 @@ class NoisyDataModule(LightningDataModule):
                    download=True)
 
     def get_dataset(self, split: str, transform: Optional[Callable] = None):
-        if transform is None:
-            transform = self.transforms[split]
-
         if split == 'clean':
-            dataset = self.CLEAN(self.root, transform=transform)
-            indices = random_select(dataset.targets,
-                                    self.num_clean, self.random_seed)
-            return Subset(dataset, indices)
+            d = self.CLEAN(self.root, transform=transform)
+            i = random_select(d.targets, self.num_clean, self.random_seed)
+            return Subset(d, i)
         elif split == 'noisy':
             return self.NOISY(self.root,
                               noise_type=self.noise_type,
@@ -107,15 +97,14 @@ class NoisyDataModule(LightningDataModule):
         raise ValueError(f'Unknwon dataset split: {split}')
 
     def setup(self, stage=None):
-        clean = self.get_dataset('clean')
-        noisy = self.get_dataset('noisy')
-        val = self.get_dataset('val')
+        clean = self.get_dataset('clean', self.transforms['clean'])
+        noisy = self.get_dataset('noisy', self.transforms['noisy'])
+        val = self.get_dataset('val', self.transforms['val'])
 
         if self.expand_clean:
             m = ((len(noisy) * self.batch_sizes['clean']) /
                  (len(clean) * self.batch_sizes['noisy'] * 2))
-            m = max(ceil(m), 1)
-            clean = ConcatDataset([clean] * m)
+            clean = ConcatDataset([clean] * max(ceil(m), 1))
 
         if self.enumerate_noisy:
             noisy = IndexedDataset(noisy)
@@ -151,81 +140,15 @@ class NoisyDataModule(LightningDataModule):
 
 
 class NoisyMNIST(NoisyDataModule):
-    def __init__(
-        self,
-        root: str,
-        num_clean: int = 0,
-        noise_type: str = 'symmetric',
-        noise_ratio: float = 0.0,
-        random_seed: int = 0,
-        transforms: dict[str, Callable] = {},
-        batch_sizes: dict[str, int] = {},
-        expand_clean: bool = False,
-        enumerate_noisy: bool = False,
-    ):
-        super().__init__(
-            'MNIST',
-            root,
-            num_clean=num_clean,
-            noise_type=noise_type,
-            noise_ratio=noise_ratio,
-            random_seed=random_seed,
-            transforms=transforms,
-            batch_sizes=batch_sizes,
-            expand_clean=expand_clean,
-            enumerate_noisy=enumerate_noisy,
-        )
+    CLEAN = MNIST
+    NOISY = DatasetNoisyMNIST
 
 
 class NoisyCIFAR10(NoisyDataModule):
-    def __init__(
-        self,
-        root: str,
-        num_clean: int = 0,
-        noise_type: str = 'symmetric',
-        noise_ratio: float = 0.0,
-        random_seed: int = 0,
-        transforms: dict[str, Callable] = {},
-        batch_sizes: dict[str, int] = {},
-        expand_clean: bool = False,
-        enumerate_noisy: bool = False,
-    ):
-        super().__init__(
-            'CIFAR10',
-            root,
-            num_clean=num_clean,
-            noise_type=noise_type,
-            noise_ratio=noise_ratio,
-            random_seed=random_seed,
-            transforms=transforms,
-            batch_sizes=batch_sizes,
-            expand_clean=expand_clean,
-            enumerate_noisy=enumerate_noisy,
-        )
+    CLEAN = CIFAR10
+    NOISY = DatasetNoisyCIFAR10
 
 
 class NoisyCIFAR100(NoisyDataModule):
-    def __init__(
-        self,
-        root: str,
-        num_clean: int = 0,
-        noise_type: str = 'symmetric',
-        noise_ratio: float = 0.0,
-        random_seed: int = 0,
-        transforms: dict[str, Callable] = {},
-        batch_sizes: dict[str, int] = {},
-        expand_clean: bool = False,
-        enumerate_noisy: bool = False,
-    ):
-        super().__init__(
-            'CIFAR100',
-            root,
-            num_clean=num_clean,
-            noise_type=noise_type,
-            noise_ratio=noise_ratio,
-            random_seed=random_seed,
-            transforms=transforms,
-            batch_sizes=batch_sizes,
-            expand_clean=expand_clean,
-            enumerate_noisy=enumerate_noisy,
-        )
+    CLEAN = CIFAR100
+    NOISY = DatasetNoisyCIFAR100

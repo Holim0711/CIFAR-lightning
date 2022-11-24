@@ -60,8 +60,10 @@ class NoisyCIFAR10(CIFAR10):
         pin_memory: bool = True,
         **kwargs
     ):
-        return DataLoader(self, batch_size, shuffle=shuffle,
-                          num_workers=num_workers, pin_memory=pin_memory,
+        return DataLoader(self, batch_size,
+                          shuffle=shuffle,
+                          num_workers=num_workers,
+                          pin_memory=pin_memory,
                           **kwargs)
 
 
@@ -112,6 +114,8 @@ class NoisyCIFAR100(CIFAR100):
         pin_memory: bool = True,
         **kwargs
     ):
-        return DataLoader(self, batch_size, shuffle=shuffle,
-                          num_workers=num_workers, pin_memory=pin_memory,
+        return DataLoader(self, batch_size,
+                          shuffle=shuffle,
+                          num_workers=num_workers,
+                          pin_memory=pin_memory,
                           **kwargs)

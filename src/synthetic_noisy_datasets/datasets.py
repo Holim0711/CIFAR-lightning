@@ -1,6 +1,7 @@
 import os
 from typing import Callable, Optional, Union
 import torch
+from torch.utils.data import DataLoader
 from torchvision.datasets import CIFAR10, CIFAR100
 from .utils import random_noisify, transition_matrix
 
@@ -51,6 +52,16 @@ class NoisyCIFAR10(CIFAR10):
         xy = super().__getitem__(index)
         return (index, xy) if self.show_indices else xy
 
+    def get_dataloader(
+        self,
+        batch_size: int,
+        shuffle: bool = True,
+        num_workers: int = os.cpu_count(),
+        pin_memory: bool = True,
+    ):
+        return DataLoader(self, batch_size, shuffle=shuffle,
+                          num_workers=num_workers, pin_memory=pin_memory)
+
 
 class NoisyCIFAR100(CIFAR100):
     def __init__(
@@ -90,3 +101,13 @@ class NoisyCIFAR100(CIFAR100):
     def __getitem__(self, index: int):
         xy = super().__getitem__(index)
         return (index, xy) if self.show_indices else xy
+
+    def get_dataloader(
+        self,
+        batch_size: int,
+        shuffle: bool = True,
+        num_workers: int = os.cpu_count(),
+        pin_memory: bool = True,
+    ):
+        return DataLoader(self, batch_size, shuffle=shuffle,
+                          num_workers=num_workers, pin_memory=pin_memory)

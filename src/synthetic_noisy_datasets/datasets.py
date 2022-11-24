@@ -1,62 +1,23 @@
 import os
-from typing import Callable, Optional
-import numpy as np
-from torchvision.datasets import MNIST, CIFAR10, CIFAR100
+from typing import Callable, Optional, Union
+import torch
+from torchvision.datasets import CIFAR10, CIFAR100
 from .utils import random_noisify, transition_matrix
 
 
-__all__ = ['NoisyMNIST', 'NoisyCIFAR10', 'NoisyCIFAR100']
-
-
-class NoisyMNIST(MNIST):
-    def __init__(
-        self,
-        root: str,
-        noise_type: str = 'symmetric',
-        noise_ratio: float = 0.0,
-        random_seed: int = 0,
-        transform: Optional[Callable] = None,
-        target_transform: Optional[Callable] = None,
-        download: bool = False,
-    ):
-        super().__init__(
-            root,
-            train=True,
-            transform=transform,
-            target_transform=target_transform,
-            download=download
-        )
-        self.noise_type = noise_type
-        self.noise_ratio = noise_ratio
-        self.random_seed = random_seed
-        self.T = transition_matrix('MNIST', noise_type, noise_ratio)
-
-        filename = f'noisy-{noise_type}-{noise_ratio}-{random_seed}.npy'
-        path = os.path.join(root, filename)
-        if os.path.isfile(path):
-            self.targets = np.load(path)
-        else:
-            self.targets = random_noisify(self.targets, self.T, random_seed)
-            np.save(path, self.targets)
-
-    @property
-    def raw_folder(self) -> str:
-        return os.path.join(self.root, 'MNIST', "raw")
-
-    @property
-    def processed_folder(self) -> str:
-        return os.path.join(self.root, 'MNIST', "processed")
+__all__ = ['NoisyCIFAR10', 'NoisyCIFAR100']
 
 
 class NoisyCIFAR10(CIFAR10):
     def __init__(
         self,
         root: str,
-        noise_type: str = 'symmetric',
-        noise_ratio: float = 0.0,
+        noise_type: str,
+        noise_level: Union[float, str],
         random_seed: int = 0,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
+        show_indices: bool = False,
         download: bool = False,
     ):
         super().__init__(
@@ -67,29 +28,41 @@ class NoisyCIFAR10(CIFAR10):
             download=download
         )
         self.noise_type = noise_type
-        self.noise_ratio = noise_ratio
+        self.noise_level = noise_level
         self.random_seed = random_seed
-        self.T = transition_matrix('CIFAR10', noise_type, noise_ratio)
+        self.show_indices = show_indices
 
-        filename = f'noisy-{noise_type}-{noise_ratio}-{random_seed}.npy'
-        path = os.path.join(root, filename)
-        if os.path.isfile(path):
-            self.targets = np.load(path)
+        if noise_type == 'human':
+            noise_level = {
+                'clean': 'clean_label',
+                'aggregate': 'aggre_label',
+                'random1': 'random_label1',
+                'random2': 'random_label2',
+                'random3': 'random_label3',
+                'worst': 'worse_label',
+            }[noise_level]
+            path = os.path.join(os.path.dirname(__file__), 'CIFARN', 'CIFAR-10_human.pt')
+            self.targets = torch.load(path)[noise_level]
         else:
-            self.targets = random_noisify(self.targets, self.T, random_seed)
-            np.save(path, self.targets)
+            T = transition_matrix('CIFAR10', noise_type, noise_level)
+            self.targets = random_noisify(self.targets, T, random_seed)
+
+    def __getitem__(self, index: int):
+        xy = super().__getitem__(index)
+        return (index, xy) if self.show_indices else xy
 
 
 class NoisyCIFAR100(CIFAR100):
     def __init__(
         self,
         root: str,
-        noise_type: str = 'symmetric',
-        noise_ratio: float = 0.0,
+        noise_type: str,
+        noise_level: Union[float, str],
         random_seed: int = 0,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         download: bool = False,
+        show_indices: bool = False
     ):
         super().__init__(
             root,
@@ -99,14 +72,21 @@ class NoisyCIFAR100(CIFAR100):
             download=download
         )
         self.noise_type = noise_type
-        self.noise_ratio = noise_ratio
+        self.noise_ratio = noise_level
         self.random_seed = random_seed
-        self.T = transition_matrix('CIFAR100', noise_type, noise_ratio)
+        self.show_indices = show_indices
 
-        filename = f'noisy-{noise_type}-{noise_ratio}-{random_seed}.npy'
-        path = os.path.join(root, filename)
-        if os.path.isfile(path):
-            self.targets = np.load(path)
+        if noise_type == 'human':
+            noise_level = {
+                'clean': 'clean_label',
+                'noisy': 'noisy_label',
+            }[noise_level]
+            path = os.path.join(os.path.dirname(__file__), 'CIFARN', 'CIFAR-100_human.pt')
+            self.targets = torch.load(path)['noisy_label']
         else:
-            self.targets = random_noisify(self.targets, self.T, random_seed)
-            np.save(path, self.targets)
+            T = transition_matrix('CIFAR100', noise_type, noise_level)
+            self.targets = random_noisify(self.targets, T, random_seed)
+
+    def __getitem__(self, index: int):
+        xy = super().__getitem__(index)
+        return (index, xy) if self.show_indices else xy

@@ -58,9 +58,11 @@ class NoisyCIFAR10(CIFAR10):
         shuffle: bool = True,
         num_workers: int = os.cpu_count(),
         pin_memory: bool = True,
+        **kwargs
     ):
         return DataLoader(self, batch_size, shuffle=shuffle,
-                          num_workers=num_workers, pin_memory=pin_memory)
+                          num_workers=num_workers, pin_memory=pin_memory,
+                          **kwargs)
 
 
 class NoisyCIFAR100(CIFAR100):
@@ -108,6 +110,8 @@ class NoisyCIFAR100(CIFAR100):
         shuffle: bool = True,
         num_workers: int = os.cpu_count(),
         pin_memory: bool = True,
+        **kwargs
     ):
         return DataLoader(self, batch_size, shuffle=shuffle,
-                          num_workers=num_workers, pin_memory=pin_memory)
+                          num_workers=num_workers, pin_memory=pin_memory,
+                          **kwargs)

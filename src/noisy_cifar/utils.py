@@ -1,25 +1,6 @@
 import numpy as np
 
-__all__ = [
-    'random_select',
-    'random_noisify',
-    'transition_matrix',
-]
-
-
-def random_select(y, N, seed=None):
-    """ Select a total of 'N' indices equally for each class """
-    y = np.array(y)
-    C = np.unique(y)
-    n = N // len(C)
-    random_state = np.random.RandomState(seed)
-
-    random_I = []
-    for c in C:
-        Iᶜ = np.where(y == c)[0]
-        random_Iᶜ = random_state.choice(Iᶜ, n, replace=False)
-        random_I.extend(random_Iᶜ)
-    return random_I
+__all__ = ['random_noisify', 'transition_matrix']
 
 
 def random_noisify(y, T, seed=None):

@@ -1,11 +1,33 @@
-import os
 from typing import Callable, Optional, Union
+from importlib.resources import read_binary
+from zipfile import ZipFile
 import torch
 from torchvision.datasets import CIFAR10, CIFAR100
 from .utils import random_noisify, transition_matrix
 
 
 __all__ = ['NoisyCIFAR10', 'NoisyCIFAR100']
+
+
+def _load_cifar_n(dataset: str, noise_level: str):
+    key = {
+        'CIFAR-10': {
+            'clean': 'clean_label',
+            'aggregate': 'aggre_label',
+            'random1': 'random_label1',
+            'random2': 'random_label2',
+            'random3': 'random_label3',
+            'worst': 'worse_label',
+        },
+        'CIFAR-100': {
+            'clean': 'clean_label',
+            'noisy': 'noisy_label',
+        }
+    }[dataset][noise_level]
+
+    with ZipFile(read_binary(__package__, 'CIFAR-N.zip')) as zipfile:
+        with zipfile.open(f'CIFAR-N/{dataset}_human.pt') as file:
+            return torch.load(file)[key]
 
 
 class NoisyCIFAR10(CIFAR10):
@@ -31,16 +53,7 @@ class NoisyCIFAR10(CIFAR10):
         self.random_seed = random_seed
 
         if noise_type == 'human':
-            noise_level = {
-                'clean': 'clean_label',
-                'aggregate': 'aggre_label',
-                'random1': 'random_label1',
-                'random2': 'random_label2',
-                'random3': 'random_label3',
-                'worst': 'worse_label',
-            }[noise_level]
-            path = os.path.join(os.path.dirname(__file__), 'CIFAR-N', 'CIFAR-10_human.pt')
-            self.targets = torch.load(path)[noise_level]
+            self.targets = _load_cifar_n('CIFAR-10', noise_level)
         else:
             T = transition_matrix('CIFAR10', noise_type, noise_level)
             self.targets = random_noisify(self.targets, T, random_seed)
@@ -69,12 +82,7 @@ class NoisyCIFAR100(CIFAR100):
         self.random_seed = random_seed
 
         if noise_type == 'human':
-            noise_level = {
-                'clean': 'clean_label',
-                'noisy': 'noisy_label',
-            }[noise_level]
-            path = os.path.join(os.path.dirname(__file__), 'CIFAR-N', 'CIFAR-100_human.pt')
-            self.targets = torch.load(path)['noisy_label']
+            self.targets = _load_cifar_n('CIFAR-100', noise_level)
         else:
             T = transition_matrix('CIFAR100', noise_type, noise_level)
             self.targets = random_noisify(self.targets, T, random_seed)
